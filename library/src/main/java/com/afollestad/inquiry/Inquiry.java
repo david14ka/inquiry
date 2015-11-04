@@ -3,6 +3,7 @@ package com.afollestad.inquiry;
 import android.content.Context;
 import android.net.Uri;
 import android.os.Handler;
+import android.support.annotation.IntRange;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
@@ -17,13 +18,15 @@ public final class Inquiry {
     protected Handler mHandler;
     @Nullable
     protected String mDatabaseName;
+    protected int mDatabaseVersion = 1;
 
     private Inquiry() {
         mHandler = new Handler();
     }
 
     @NonNull
-    public static Inquiry init(@NonNull Context context, @Nullable String databaseName) {
+    public static Inquiry init(@NonNull Context context, @Nullable String databaseName,
+                               @IntRange(from = 1, to = Integer.MAX_VALUE) int databaseVersion) {
         //noinspection ConstantConditions
         if (context == null)
             throw new IllegalArgumentException("Context can't be null.");
@@ -31,12 +34,13 @@ public final class Inquiry {
             mInquiry = new Inquiry();
         mInquiry.mContext = context;
         mInquiry.mDatabaseName = databaseName;
+        mInquiry.mDatabaseVersion = databaseVersion;
         return mInquiry;
     }
 
     @NonNull
     public static Inquiry init(@NonNull Context context) {
-        return init(context, null);
+        return init(context, null, 1);
     }
 
     public static void deinit() {
@@ -44,12 +48,13 @@ public final class Inquiry {
             mInquiry.mContext = null;
             mInquiry.mHandler = null;
             mInquiry.mDatabaseName = null;
+            mInquiry.mDatabaseVersion = 0;
             mInquiry = null;
         }
     }
 
     public void dropTable(@NonNull String tableName) {
-        new SQLiteHelper(mContext, mDatabaseName, null, null)
+        new SQLiteHelper(mContext, mDatabaseName, null, null, mDatabaseVersion)
                 .getWritableDatabase().execSQL("DROP TABLE IF EXISTS " + tableName);
     }
 
@@ -62,7 +67,7 @@ public final class Inquiry {
 
     @NonNull
     public <RowType> Query<RowType> selectFrom(@NonNull String table, @NonNull Class<RowType> rowType) {
-        return new Query<>(this, table, Query.SELECT, rowType);
+        return new Query<>(this, table, Query.SELECT, rowType, mDatabaseVersion);
     }
 
     @NonNull
@@ -72,7 +77,7 @@ public final class Inquiry {
 
     @NonNull
     public <RowType> Query<RowType> insertInto(@NonNull String table, @NonNull Class<RowType> rowType) {
-        return new Query<>(this, table, Query.INSERT, rowType);
+        return new Query<>(this, table, Query.INSERT, rowType, mDatabaseVersion);
     }
 
     @NonNull
@@ -82,7 +87,7 @@ public final class Inquiry {
 
     @NonNull
     public <RowType> Query<RowType> update(@NonNull String table, @NonNull Class<RowType> rowType) {
-        return new Query<>(this, table, Query.UPDATE, rowType);
+        return new Query<>(this, table, Query.UPDATE, rowType, mDatabaseVersion);
     }
 
     @NonNull
@@ -92,7 +97,7 @@ public final class Inquiry {
 
     @NonNull
     public <RowType> Query<RowType> deleteFrom(@NonNull String table, @NonNull Class<RowType> rowType) {
-        return new Query<>(this, table, Query.DELETE, rowType);
+        return new Query<>(this, table, Query.DELETE, rowType, mDatabaseVersion);
     }
 
     @NonNull

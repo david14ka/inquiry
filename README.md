@@ -60,7 +60,7 @@ public class App extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
-        Inquiry.init(this, "myDatabase");
+        Inquiry.init(this, "myDatabase", 1);
     }
 
     @Override
@@ -72,7 +72,10 @@ public class App extends Application {
 ```
 
 `init()` takes a `Context` in the first parameter, and the name of the database that'll you be using
-in the second parameter. Think of a database like a file that contains a set of tables (a table is basically
+in the second parameter. The third parameter is the database version, which could always be '1' if you want. 
+Incrementing the number will drop tables created with a lower number next time they are accessed.
+
+Think of a database like a file that contains a set of tables (a table is basically
 a spreadsheet; it contains rows and columns).
 
 When your app is done with Inquiry, you *should* call `deinit()` to help clean up references.

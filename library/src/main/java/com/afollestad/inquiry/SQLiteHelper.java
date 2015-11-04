@@ -9,13 +9,13 @@ import android.util.Log;
 
 class SQLiteHelper extends SQLiteOpenHelper {
 
-    private static final int DATABASE_VERSION = 1;
     private final String mTableName;
 
-    public SQLiteHelper(Context context, String databaseName, String table, String columns) {
-        super(context, databaseName, null, DATABASE_VERSION);
+    public SQLiteHelper(Context context, String databaseName, String table, String columns, int version) {
+        super(context, databaseName, null, version);
         mTableName = table;
         if (mTableName != null && columns != null) {
+            getWritableDatabase(); // will invoke onUpgrade if necessary
             try {
                 final String createStatement = String.format("CREATE TABLE IF NOT EXISTS %s (%s);", table, columns);
                 getWritableDatabase().execSQL(createStatement);

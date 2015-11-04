@@ -39,14 +39,14 @@ public final class Query<RowType> {
         mRowClass = mClass;
     }
 
-    protected Query(@NonNull Inquiry inquiry, @NonNull String tableName, int type, @Nullable Class<RowType> mClass) {
+    protected Query(@NonNull Inquiry inquiry, @NonNull String tableName, int type, @Nullable Class<RowType> mClass, int databaseVersion) {
         mInquiry = inquiry;
         mQueryType = type;
         mRowClass = mClass;
         if (inquiry.mDatabaseName == null)
             throw new IllegalStateException("Inquiry was not initialized with a database name, it can only use content providers in this configuration.");
         mDatabase = new SQLiteHelper(inquiry.mContext, inquiry.mDatabaseName,
-                tableName, ClassRowConverter.getClassSchema(mClass));
+                tableName, ClassRowConverter.getClassSchema(mClass), databaseVersion);
     }
 
     private String[] mOnlyUpdate;
