@@ -20,7 +20,7 @@ Then, add Inquiry to your dependencies list:
 
 ```gradle
 dependencies {
-    compile 'com.github.afollestad:inquiry:1.3.0'
+    compile 'com.github.afollestad:inquiry:1.4.0'
 }
 ```
 
@@ -99,8 +99,8 @@ public class Person {
         this.admin = admin;
     }
 
-    @Column(primaryKey = true, notNull = true, autoIncrement = true)
-    public long _id;
+    @Column(name = "_id", primaryKey = true, notNull = true, autoIncrement = true)
+    public long id;
     @Column
     public String name;
     @Column
@@ -117,6 +117,7 @@ annotation, they will be ignored by Inquiry.
 
 Notice that the `_id` field contains optional parameters in its annotation:
 
+* `name` indicates a column name, if the column name is different than what you name the class field.
 * `primaryKey` indicates its column is the main column used to identify the row. No other row in the
 table can have the same value for that specific column. This is commonly used with IDs.
 * `notNull` indicates that you can never insert null as a value for that column.
@@ -319,17 +320,17 @@ so the title, duration, album art, etc. can be quickly accessed.
 Inquiry initialization is still the same, but passing a database name is not required for content providers.
 
 ```java
-public class App extends Application {
+public class MainActivity extends AppCompatActivity {
 
     @Override
-    public void onCreate() {
-        super.onCreate();
+    public void onResume() {
+        super.onResume();
         Inquiry.init(this);
     }
 
     @Override
-    public void onTerminate() {
-        super.onTerminate();
+    public void onPause() {
+        super.onPause();
         Inquiry.deinit();
     }
 }
@@ -340,30 +341,27 @@ public class App extends Application {
 This small example will read artists (for songs) on your phone. Here's the row class:
 
 ```java
-public class Artist {
+public class Photo {
 
-    public Artist() {
+    public Photo() {
     }
 
-    @Column
-    public long _id;
-    @Column
-    public String artist;
-    @Column
-    public String artist_key;
-    @Column
-    public int number_of_albums;
-    @Column
-    public int number_of_tracks;
+    @Column(name = MediaStore.Images.Media._ID)
+    public long id;
+    @Column(name = MediaStore.Images.Media.TITLE)
+    public String title;
+    @Column(name = MediaStore.Images.Media.DATA)
+    public String path;
+    @Column(name = MediaStore.Images.Media.DATE_MODIFIED)
+    public long dateModified;
 }
 ```
 
 You can perform all the same operations, but you pass a `content://` URI instead of a table name:
 
 ```java
-Uri artistsUri = Uri.parse("content://media/internal/audio/artists");
-Artist[] artists = Inquiry.get()
-    .selectFrom(artistsUri, Artist.class)
+Photo[] photos = Inquiry.get()
+    .selectFrom(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, Photo.class)
     .all();
 ```
 

@@ -19,6 +19,7 @@ import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 /**
  * @author Aidan Follestad (afollestad)
@@ -195,13 +196,26 @@ class ClassRowConverter {
         }
     }
 
+    /**
+     * Avoids the need to loop over fields for every column by caching them ahead of time.
+     */
+    private static HashMap<String, Field> buildFieldCache(Class<?> cls) {
+        final HashMap<String, Field> cache = new HashMap<>();
+        final Field[] fields = cls.getDeclaredFields();
+        for (Field fld : fields)
+            cache.put(selectColumnName(null, fld), fld);
+        return cache;
+    }
+
     public static <T> T cursorToCls(Cursor cursor, Class<T> cls) {
-        T row = Utils.newInstance(cls);
+        final T row = Utils.newInstance(cls);
+        final HashMap<String, Field> fieldCache = buildFieldCache(cls);
+
         for (int columnIndex = 0; columnIndex < cursor.getColumnCount(); columnIndex++) {
             final String columnName = cursor.getColumnName(columnIndex);
             final int columnType = cursorTypeToColumnType(cursor.getType(columnIndex));
             try {
-                final Field columnField = cls.getDeclaredField(columnName);
+                final Field columnField = fieldCache.get(columnName);
                 columnField.setAccessible(true);
                 loadFieldIntoRow(cursor, columnField, row, columnIndex, columnType);
             } catch (NoSuchFieldException e) {
