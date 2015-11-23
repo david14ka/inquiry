@@ -50,22 +50,20 @@ dependencies {
 
 # Quick Setup
 
-When your app starts, you need to initialize Inquiry. You can do so from an `Application` class,
-which must be registered in your manifest. You could also put this inside of `onCreate()` in your
-main `Activity`.
+When your app starts, you need to initialize Inquiry. `init()` and `deinit()` can be used from anywhere, but a reliable place to do so is in an Activity:
 
 ```java
-public class App extends Application {
+public class MainActivity extends AppCompatActivity {
 
     @Override
-    public void onCreate() {
-        super.onCreate();
+    public void onResume() {
+        super.onResume();
         Inquiry.init(this, "myDatabase", 1);
     }
 
     @Override
-    public void onTerminate() {
-        super.onTerminate();
+    public void onPause() {
+        super.onPause();
         Inquiry.deinit();
     }
 }
@@ -78,7 +76,7 @@ Incrementing the number will drop tables created with a lower number next time t
 Think of a database like a file that contains a set of tables (a table is basically
 a spreadsheet; it contains rows and columns).
 
-When your app is done with Inquiry, you *should* call `deinit()` to help clean up references.
+When your app is done with Inquiry, you *should* call `deinit()` to help clean up references and avoid memory leaks.
 
 ---
 
