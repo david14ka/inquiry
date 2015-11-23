@@ -86,7 +86,7 @@ class ClassRowConverter {
     private static String getFieldSchema(Field field) {
         Column colAnnotation = field.getAnnotation(Column.class);
         if (colAnnotation == null) return null;
-        String colName = field.getName();
+        String colName = selectColumnName(colAnnotation, field);
         colName += " " + getClassTypeString(field.getType());
         if (colAnnotation.primaryKey())
             colName += " PRIMARY KEY";
@@ -146,6 +146,8 @@ class ClassRowConverter {
             return;
         }
 
+        final String columnName = selectColumnName(field.getAnnotation(Column.class), field);
+
         switch (columnType) {
             case DataType.BLOB:
                 byte[] blob = cursor.getBlob(columnIndex);
@@ -163,7 +165,7 @@ class ClassRowConverter {
                     field.set(row, cursor.getDouble(columnIndex));
                 else
                     throw new IllegalStateException(String.format("Column %s of type REAL (float) doesn't match field of type %s",
-                            field.getName(), fieldType.getName()));
+                            columnName, fieldType.getName()));
                 break;
             case DataType.INTEGER:
                 if (fieldType == short.class || fieldType == Short.class)
@@ -176,7 +178,7 @@ class ClassRowConverter {
                     field.set(row, cursor.getInt(columnIndex) == 1);
                 else
                     throw new IllegalStateException(String.format("Column %s of type INTEGER (float) doesn't match field of type %s",
-                            field.getName(), fieldType.getName()));
+                            columnName, fieldType.getName()));
                 break;
             case DataType.TEXT:
                 String text = cursor.getString(columnIndex);
@@ -188,7 +190,7 @@ class ClassRowConverter {
                     field.set(row, text.length() > 0 ? text.charAt(0) : null);
                 else
                     throw new IllegalStateException(String.format("Column %s of type REAL (float) doesn't match field of type %s",
-                            field.getName(), fieldType.getName()));
+                            columnName, fieldType.getName()));
                 break;
         }
     }
@@ -226,9 +228,18 @@ class ClassRowConverter {
             fld.setAccessible(true);
             Column colAnn = fld.getAnnotation(Column.class);
             if (colAnn == null) continue;
-            projection.add(fld.getName());
+            projection.add(selectColumnName(colAnn, fld));
         }
         return projection.toArray(new String[projection.size()]);
+    }
+
+    private static String selectColumnName(Column ann, Field fld) {
+        if (ann == null)
+            ann = fld.getAnnotation(Column.class);
+        if (ann == null) return fld.getName();
+        if (ann.name() != null && !ann.name().trim().isEmpty())
+            return ann.name();
+        return fld.getName();
     }
 
     public static ContentValues clsToVals(@NonNull Object row, @Nullable String[] projection) {
@@ -241,7 +252,7 @@ class ClassRowConverter {
                 if (projection != null && projection.length > 0) {
                     boolean skip = true;
                     for (String proj : projection) {
-                        if (proj != null && proj.equalsIgnoreCase(fld.getName())) {
+                        if (proj != null && proj.equalsIgnoreCase(selectColumnName(null, fld))) {
                             skip = false;
                             break;
                         }
@@ -256,30 +267,32 @@ class ClassRowConverter {
                 final Object fldVal = fld.get(row);
                 if (fldVal == null) continue;
 
+                final String columnName = selectColumnName(colAnn, fld);
+
                 if (fldType.equals(String.class)) {
-                    vals.put(fld.getName(), (String) fldVal);
+                    vals.put(columnName, (String) fldVal);
                 } else if (fldType.equals(char[].class) || fldType.equals(Character[].class)) {
-                    vals.put(fld.getName(), new String((char[]) fldVal));
+                    vals.put(columnName, new String((char[]) fldVal));
                 } else if (fldType.equals(Float.class) || fldType.equals(float.class)) {
-                    vals.put(fld.getName(), (float) fldVal);
+                    vals.put(columnName, (float) fldVal);
                 } else if (fldType.equals(Double.class) || fldType.equals(double.class)) {
-                    vals.put(fld.getName(), (double) fldVal);
+                    vals.put(columnName, (double) fldVal);
                 } else if (fldType.equals(Short.class) || fldType.equals(short.class)) {
-                    vals.put(fld.getName(), (short) fldVal);
+                    vals.put(columnName, (short) fldVal);
                 } else if (fldType.equals(Integer.class) || fldType.equals(int.class)) {
-                    vals.put(fld.getName(), (int) fldVal);
+                    vals.put(columnName, (int) fldVal);
                 } else if (fldType.equals(Long.class) || fldType.equals(long.class)) {
-                    vals.put(fld.getName(), (long) fldVal);
+                    vals.put(columnName, (long) fldVal);
                 } else if (fldType.equals(char.class) || fldType.equals(Character.class)) {
-                    vals.put(fld.getName(), Character.toString((char) fldVal));
+                    vals.put(columnName, Character.toString((char) fldVal));
                 } else if (fldType.equals(Boolean.class) || fldType.equals(boolean.class)) {
-                    vals.put(fld.getName(), ((boolean) fldVal) ? 1 : 0);
+                    vals.put(columnName, ((boolean) fldVal) ? 1 : 0);
                 } else if (fldType.equals(Bitmap.class)) {
-                    vals.put(fld.getName(), bitmapToBytes((Bitmap) fldVal));
+                    vals.put(columnName, bitmapToBytes((Bitmap) fldVal));
                 } else if (fldType.equals(Byte[].class) || fldType.equals(byte[].class)) {
-                    vals.put(fld.getName(), (byte[]) fldVal);
+                    vals.put(columnName, (byte[]) fldVal);
                 } else if (fldVal instanceof Serializable) {
-                    vals.put(fld.getName(), serializeObject(fldVal));
+                    vals.put(columnName, serializeObject(fldVal));
                 } else {
                     throw new IllegalStateException("Class " + fldType.getName() + " should be marked as Serializable in order to be inserted.");
                 }

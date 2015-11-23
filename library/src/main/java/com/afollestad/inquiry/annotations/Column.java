@@ -18,4 +18,6 @@ public @interface Column {
     boolean autoIncrement() default false;
 
     boolean notNull() default false;
+
+    String name() default "";
 }
