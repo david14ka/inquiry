@@ -34,10 +34,10 @@ public class MainAdapter extends RecyclerView.Adapter<MainAdapter.MainVH> {
     @Override
     public void onBindViewHolder(MainVH holder, int position) {
         final Photo photo = mPhotos[position];
-        holder.title.setText(photo.title);
+        holder.title.setText(photo.getTitle());
 
         Glide.with(holder.itemView.getContext())
-                .load(photo.path)
+                .load(photo.getPath())
                 .into(holder.thumbnail);
     }
 

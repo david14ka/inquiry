@@ -13,11 +13,27 @@ public class Photo {
     }
 
     @Column(name = MediaStore.Images.Media._ID)
-    public long id;
+    private long id;
     @Column(name = MediaStore.Images.Media.TITLE)
-    public String title;
+    private String title;
     @Column(name = MediaStore.Images.Media.DATA)
-    public String path;
+    private String path;
     @Column(name = MediaStore.Images.Media.DATE_MODIFIED)
-    public long dateModified;
+    private long dateModified;
+
+    public long getId() {
+        return id;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public String getPath() {
+        return path;
+    }
+
+    public long getDateModified() {
+        return dateModified;
+    }
 }
