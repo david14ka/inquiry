@@ -8,15 +8,22 @@ Read and write class objects from tables in a database. Let Inquiry handle the h
 
 # Gradle Dependency
 
-First, add JitPack.io to the repositories list in your app module's build.gradle file:
+### Repository
+
+Add this in your root `build.gradle` file (**not** your module `build.gradle` file):
 
 ```gradle
-repositories {
-    maven { url "https://jitpack.io" }
+allprojects {
+	repositories {
+		...
+		maven { url "https://jitpack.io" }
+	}
 }
 ```
 
-Then, add Inquiry to your dependencies list:
+### Dependency
+
+Add this to your module's `build.gradle` file:
 
 ```gradle
 dependencies {
