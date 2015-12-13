@@ -19,7 +19,10 @@ import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 
 /**
  * @author Aidan Follestad (afollestad)
@@ -201,7 +204,11 @@ class ClassRowConverter {
      */
     private static HashMap<String, Field> buildFieldCache(Class<?> cls) {
         final HashMap<String, Field> cache = new HashMap<>();
-        final Field[] fields = cls.getDeclaredFields();
+        final List<Field> fields = new ArrayList<>(Arrays.asList(cls.getDeclaredFields()));
+        while (cls.getSuperclass() != null) {
+            cls = cls.getSuperclass();
+            Collections.addAll(fields, cls.getDeclaredFields());
+        }
         for (Field fld : fields)
             cache.put(selectColumnName(null, fld), fld);
         return cache;
@@ -243,6 +250,9 @@ class ClassRowConverter {
             Column colAnn = fld.getAnnotation(Column.class);
             if (colAnn == null) continue;
             projection.add(selectColumnName(colAnn, fld));
+        }
+        if (cls.getSuperclass() != null) {
+            Collections.addAll(projection, generateProjection(cls.getSuperclass()));
         }
         return projection.toArray(new String[projection.size()]);
     }

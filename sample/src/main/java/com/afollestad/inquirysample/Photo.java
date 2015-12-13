@@ -4,36 +4,31 @@ import android.provider.MediaStore;
 
 import com.afollestad.inquiry.annotations.Column;
 
-/**
- * @author Aidan Follestad (afollestad)
- */
-public class Photo {
+public class Photo extends Media {
+    /* Subclass demo. Inquiry finds all @Column annotations declared in superclasses */
 
-    public Photo() {
+    @Column(name = MediaStore.Images.Media.DATE_TAKEN)
+    private long dateTaken;
+    @Column(name = MediaStore.Images.Media.WIDTH)
+    private int width;
+    @Column(name = MediaStore.Images.Media.HEIGHT)
+    private int height;
+    @Column(name = MediaStore.Images.Media.ORIENTATION)
+    private int orientation;
+
+    public long getDateTaken() {
+        return dateTaken;
     }
 
-    @Column(name = MediaStore.Images.Media._ID)
-    private long id;
-    @Column(name = MediaStore.Images.Media.TITLE)
-    private String title;
-    @Column(name = MediaStore.Images.Media.DATA)
-    private String path;
-    @Column(name = MediaStore.Images.Media.DATE_MODIFIED)
-    private long dateModified;
-
-    public long getId() {
-        return id;
+    public int getWidth() {
+        return width;
     }
 
-    public String getTitle() {
-        return title;
+    public int getHeight() {
+        return height;
     }
 
-    public String getPath() {
-        return path;
-    }
-
-    public long getDateModified() {
-        return dateModified;
+    public int getOrientation() {
+        return orientation;
     }
 }
