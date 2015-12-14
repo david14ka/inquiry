@@ -19,7 +19,6 @@ import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -103,7 +102,7 @@ class ClassRowConverter {
 
     public static String getClassSchema(Class<?> cls) {
         StringBuilder sb = new StringBuilder();
-        Field[] fields = cls.getDeclaredFields();
+        List<Field> fields = getAllFields(cls);
         for (Field fld : fields) {
             fld.setAccessible(true);
             final String schema = getFieldSchema(fld);
@@ -204,11 +203,7 @@ class ClassRowConverter {
      */
     private static HashMap<String, Field> buildFieldCache(Class<?> cls) {
         final HashMap<String, Field> cache = new HashMap<>();
-        final List<Field> fields = new ArrayList<>(Arrays.asList(cls.getDeclaredFields()));
-        while (cls.getSuperclass() != null) {
-            cls = cls.getSuperclass();
-            Collections.addAll(fields, cls.getDeclaredFields());
-        }
+        final List<Field> fields = getAllFields(cls);
         for (Field fld : fields)
             cache.put(selectColumnName(null, fld), fld);
         return cache;
@@ -244,15 +239,12 @@ class ClassRowConverter {
 
     public static String[] generateProjection(Class<?> cls) {
         final ArrayList<String> projection = new ArrayList<>();
-        final Field[] fields = cls.getDeclaredFields();
+        final List<Field> fields = getAllFields(cls);
         for (Field fld : fields) {
             fld.setAccessible(true);
             Column colAnn = fld.getAnnotation(Column.class);
             if (colAnn == null) continue;
             projection.add(selectColumnName(colAnn, fld));
-        }
-        if (cls.getSuperclass() != null) {
-            Collections.addAll(projection, generateProjection(cls.getSuperclass()));
         }
         return projection.toArray(new String[projection.size()]);
     }
@@ -266,10 +258,22 @@ class ClassRowConverter {
         return fld.getName();
     }
 
+    private static List<Field> getAllFields(Class cls) {
+        List<Field> fields = new ArrayList<>();
+        while (true) {
+            Collections.addAll(fields, cls.getDeclaredFields());
+            cls = cls.getSuperclass();
+            if (cls == null) {
+                break;
+            }
+        }
+        return fields;
+    }
+
     public static ContentValues clsToVals(@NonNull Object row, @Nullable String[] projection) {
         try {
             ContentValues vals = new ContentValues();
-            Field[] fields = row.getClass().getDeclaredFields();
+            List<Field> fields = getAllFields(row.getClass());
             int columnCount = 0;
             for (Field fld : fields) {
                 fld.setAccessible(true);
