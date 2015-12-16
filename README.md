@@ -31,7 +31,8 @@ dependencies {
 }
 ```
 
-[ ![JitPack Badge](https://img.shields.io/github/release/afollestad/inquiry.svg?label=inquiry) ](https://jitpack.io/#afollestad/inquiry)
+[ ![JitPack](https://img.shields.io/github/release/afollestad/inquiry.svg?label=inquiry) ](https://jitpack.io/#afollestad/inquiry)
+[![Build Status](https://travis-ci.org/afollestad/inquiry.svg)](https://travis-ci.org/afollestad/inquiry)
 
 ---
 
