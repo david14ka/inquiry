@@ -8,6 +8,10 @@ Read and write class objects from tables in a database. Let Inquiry handle the h
 
 # Gradle Dependency
 
+[ ![JitPack](https://img.shields.io/github/release/afollestad/inquiry.svg?label=inquiry) ](https://jitpack.io/#afollestad/inquiry)
+[![Build Status](https://travis-ci.org/afollestad/inquiry.svg)](https://travis-ci.org/afollestad/inquiry)
+[![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg?style=flat-square)](https://www.apache.org/licenses/LICENSE-2.0.html)
+
 ### Repository
 
 Add this in your root `build.gradle` file (**not** your module `build.gradle` file):
@@ -30,9 +34,6 @@ dependencies {
     compile 'com.github.afollestad:inquiry:1.4.0'
 }
 ```
-
-[ ![JitPack](https://img.shields.io/github/release/afollestad/inquiry.svg?label=inquiry) ](https://jitpack.io/#afollestad/inquiry)
-[![Build Status](https://travis-ci.org/afollestad/inquiry.svg)](https://travis-ci.org/afollestad/inquiry)
 
 ---
 
