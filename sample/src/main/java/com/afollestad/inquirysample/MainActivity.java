@@ -11,21 +11,40 @@ import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 import android.widget.Toast;
 
 import com.afollestad.inquiry.Inquiry;
+import com.afollestad.inquiry.annotations.Column;
 import com.afollestad.inquiry.callbacks.GetCallback;
+import com.afollestad.inquiry.callbacks.RunCallback;
 
 /**
  * @author Aidan Follestad (afollestad)
  */
 public class MainActivity extends AppCompatActivity {
 
+    public static class TestRow {
+
+        @Column(autoIncrement = true, name = "_id", primaryKey = true)
+        private int id;
+        @Column
+        private String mName;
+
+        public TestRow() {
+        }
+
+        public TestRow(String name) {
+            mName = name;
+        }
+    }
+
     private MainAdapter mAdapter;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Inquiry.init(this, "test_db", 1);
         setContentView(R.layout.activity_main);
 
         RecyclerView list = (RecyclerView) findViewById(R.id.list);
@@ -34,6 +53,32 @@ public class MainActivity extends AppCompatActivity {
         list.setAdapter(mAdapter);
 
         reload();
+
+        Inquiry.get()
+                .deleteFrom("test_table", TestRow.class)
+                .run(new RunCallback<Integer>() {
+                    @Override
+                    public void result(Integer changed) {
+
+                        Inquiry.get()
+                                .insertInto("test_table", TestRow.class)
+                                .values(new TestRow("Aidan"), new TestRow("Waverly"))
+                                .run(new RunCallback<Long[]>() {
+                                    @Override
+                                    public void result(Long[] changed) {
+
+                                        Inquiry.get()
+                                                .selectFrom("test_table", TestRow.class)
+                                                .all(new GetCallback<TestRow>() {
+                                                    @Override
+                                                    public void result(@Nullable TestRow[] result) {
+                                                        Log.d("Test", "Test");
+                                                    }
+                                                });
+                                    }
+                                });
+                    }
+                });
     }
 
     private void reload() {
@@ -43,16 +88,20 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        Inquiry.init(this);
         Inquiry.get().selectFrom(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, Photo.class)
                 .sort(String.format("%s DESC", MediaStore.Images.Media.DATE_MODIFIED))
                 .all(new GetCallback<Photo>() {
                     @Override
                     public void result(@Nullable Photo[] result) {
                         mAdapter.setPhotos(result);
-                        Inquiry.deinit();
                     }
                 });
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        Inquiry.deinit();
     }
 
     @Override

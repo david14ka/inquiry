@@ -66,42 +66,42 @@ public final class Inquiry {
     }
 
     @NonNull
-    public <RowType> Query<RowType> selectFrom(@NonNull String table, @NonNull Class<RowType> rowType) {
+    public <RowType> Query<RowType, Integer> selectFrom(@NonNull String table, @NonNull Class<RowType> rowType) {
         return new Query<>(this, table, Query.SELECT, rowType, mDatabaseVersion);
     }
 
     @NonNull
-    public <RowType> Query<RowType> selectFrom(@NonNull Uri contentProviderUri, @NonNull Class<RowType> rowType) {
+    public <RowType> Query<RowType, Integer> selectFrom(@NonNull Uri contentProviderUri, @NonNull Class<RowType> rowType) {
         return new Query<>(this, contentProviderUri, Query.SELECT, rowType);
     }
 
     @NonNull
-    public <RowType> Query<RowType> insertInto(@NonNull String table, @NonNull Class<RowType> rowType) {
+    public <RowType> Query<RowType, Long[]> insertInto(@NonNull String table, @NonNull Class<RowType> rowType) {
         return new Query<>(this, table, Query.INSERT, rowType, mDatabaseVersion);
     }
 
     @NonNull
-    public <RowType> Query<RowType> insertInto(@NonNull Uri contentProviderUri, @NonNull Class<RowType> rowType) {
+    public <RowType> Query<RowType, Long[]> insertInto(@NonNull Uri contentProviderUri, @NonNull Class<RowType> rowType) {
         return new Query<>(this, contentProviderUri, Query.INSERT, rowType);
     }
 
     @NonNull
-    public <RowType> Query<RowType> update(@NonNull String table, @NonNull Class<RowType> rowType) {
+    public <RowType> Query<RowType, Integer> update(@NonNull String table, @NonNull Class<RowType> rowType) {
         return new Query<>(this, table, Query.UPDATE, rowType, mDatabaseVersion);
     }
 
     @NonNull
-    public <RowType> Query<RowType> update(@NonNull Uri contentProviderUri, @NonNull Class<RowType> rowType) {
+    public <RowType> Query<RowType, Integer> update(@NonNull Uri contentProviderUri, @NonNull Class<RowType> rowType) {
         return new Query<>(this, contentProviderUri, Query.UPDATE, rowType);
     }
 
     @NonNull
-    public <RowType> Query<RowType> deleteFrom(@NonNull String table, @NonNull Class<RowType> rowType) {
+    public <RowType> Query<RowType, Integer> deleteFrom(@NonNull String table, @NonNull Class<RowType> rowType) {
         return new Query<>(this, table, Query.DELETE, rowType, mDatabaseVersion);
     }
 
     @NonNull
-    public <RowType> Query<RowType> deleteFrom(@NonNull Uri contentProviderUri, @NonNull Class<RowType> rowType) {
+    public <RowType> Query<RowType, Integer> deleteFrom(@NonNull Uri contentProviderUri, @NonNull Class<RowType> rowType) {
         return new Query<>(this, contentProviderUri, Query.DELETE, rowType);
     }
 }

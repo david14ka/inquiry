@@ -230,11 +230,38 @@ class ClassRowConverter {
         return row;
     }
 
-    public static ContentValues[] clsArrayToVals(@NonNull Object[] rows, @Nullable String[] projection) {
-        ContentValues[] vals = new ContentValues[rows.length];
-        for (int i = 0; i < rows.length; i++)
-            vals[i] = clsToVals(rows[i], projection);
-        return vals;
+//    public static ContentValues[] clsArrayToVals(@NonNull Object[] rows, @Nullable String[] projection) {
+//        ContentValues[] vals = new ContentValues[rows.length];
+//        for (int i = 0; i < rows.length; i++)
+//            vals[i] = clsToVals(rows[i], projection, null);
+//        return vals;
+//    }
+
+    @Nullable
+    public static Field getIdField(@Nullable List<Field> fields) {
+        if (fields == null || fields.size() == 0) return null;
+        for (Field fld : fields) {
+            fld.setAccessible(true);
+            if (fld.getType() != long.class && fld.getType() != Long.class)
+                continue;
+            final Column colAnn = fld.getAnnotation(Column.class);
+            if (colAnn == null || !colAnn.autoIncrement())
+                continue;
+            final String name = selectColumnName(colAnn, fld);
+            if (name.equals("_id"))
+                return fld;
+        }
+        return null;
+    }
+
+    public static void setIdField(@NonNull Object val, @Nullable Field idField, long id) {
+        if (idField != null) {
+            try {
+                idField.setLong(val, id);
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to set _id field of row.");
+            }
+        }
     }
 
     public static String[] generateProjection(Class<?> cls) {
@@ -258,7 +285,7 @@ class ClassRowConverter {
         return fld.getName();
     }
 
-    private static List<Field> getAllFields(Class cls) {
+    public static List<Field> getAllFields(Class cls) {
         List<Field> fields = new ArrayList<>();
         while (true) {
             Collections.addAll(fields, cls.getDeclaredFields());
@@ -270,10 +297,11 @@ class ClassRowConverter {
         return fields;
     }
 
-    public static ContentValues clsToVals(@NonNull Object row, @Nullable String[] projection) {
+    public static ContentValues clsToVals(@NonNull Object row, @Nullable String[] projection, @Nullable List<Field> fields) {
         try {
             ContentValues vals = new ContentValues();
-            List<Field> fields = getAllFields(row.getClass());
+            if (fields == null)
+                fields = getAllFields(row.getClass());
             int columnCount = 0;
             for (Field fld : fields) {
                 fld.setAccessible(true);

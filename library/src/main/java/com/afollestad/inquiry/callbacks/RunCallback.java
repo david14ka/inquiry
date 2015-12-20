@@ -3,7 +3,7 @@ package com.afollestad.inquiry.callbacks;
 /**
  * @author Aidan Follestad (afollestad)
  */
-public interface RunCallback {
+public interface RunCallback<RunReturn> {
 
-    void result(long changed);
+    void result(RunReturn changed);
 }

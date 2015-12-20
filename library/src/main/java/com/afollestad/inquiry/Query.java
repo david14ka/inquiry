@@ -11,11 +11,13 @@ import com.afollestad.inquiry.callbacks.GetCallback;
 import com.afollestad.inquiry.callbacks.RunCallback;
 
 import java.lang.reflect.Array;
+import java.lang.reflect.Field;
+import java.util.List;
 
 /**
  * @author Aidan Follestad (afollestad)
  */
-public final class Query<RowType> {
+public final class Query<RowType, RunReturn> {
 
     protected final static int SELECT = 1;
     protected final static int INSERT = 2;
@@ -56,7 +58,7 @@ public final class Query<RowType> {
     private int mLimit;
     private RowType[] mValues;
 
-    public Query<RowType> where(@NonNull String selection, @Nullable Object... selectionArgs) {
+    public Query<RowType, RunReturn> where(@NonNull String selection, @Nullable Object... selectionArgs) {
         mSelection = selection;
         if (selectionArgs != null) {
             mSelectionArgs = new String[selectionArgs.length];
@@ -68,23 +70,23 @@ public final class Query<RowType> {
         return this;
     }
 
-    public Query<RowType> sort(@NonNull String sortOrder) {
+    public Query<RowType, RunReturn> sort(@NonNull String sortOrder) {
         mSortOrder = sortOrder;
         return this;
     }
 
-    public Query<RowType> limit(int limit) {
+    public Query<RowType, RunReturn> limit(int limit) {
         mLimit = limit;
         return this;
     }
 
     @SafeVarargs
-    public final Query<RowType> values(@NonNull RowType... values) {
+    public final Query<RowType, RunReturn> values(@NonNull RowType... values) {
         mValues = values;
         return this;
     }
 
-    public Query<RowType> onlyUpdate(@NonNull String... values) {
+    public Query<RowType, RunReturn> onlyUpdate(@NonNull String... values) {
         mOnlyUpdate = values;
         return this;
     }
@@ -151,51 +153,60 @@ public final class Query<RowType> {
         }).start();
     }
 
-    public long run() {
+    @SuppressWarnings("unchecked")
+    public RunReturn run() {
         if (mQueryType != DELETE && (mValues == null || mValues.length == 0))
             throw new IllegalStateException("No values were provided for this query to run.");
         final ContentResolver cr = mInquiry.mContext.getContentResolver();
+        final List<Field> clsFields = ClassRowConverter.getAllFields(mRowClass);
         switch (mQueryType) {
             case INSERT:
+                final Field idField = ClassRowConverter.getIdField(clsFields);
+                Long[] insertedIds = new Long[mValues.length];
                 if (mDatabase != null) {
-                    long inserted = 0;
-                    for (Object val : mValues)
-                        inserted += mDatabase.insert(ClassRowConverter.clsToVals(val, null));
-                    return inserted;
+                    for (int i = 0; i < mValues.length; i++) {
+                        final RowType row = mValues[i];
+                        insertedIds[i] = mDatabase.insert(ClassRowConverter.clsToVals(row, null, clsFields));
+                        ClassRowConverter.setIdField(row, idField, insertedIds[i]);
+
+                    }
                 } else if (mContentUri != null) {
-                    if (mValues.length == 1) {
-                        cr.insert(mContentUri, ClassRowConverter.clsToVals(mValues[0], null));
-                        return 1;
-                    } else
-                        return cr.bulkInsert(mContentUri, ClassRowConverter.clsArrayToVals(mValues, null));
+                    for (int i = 0; i < mValues.length; i++) {
+                        final RowType row = mValues[i];
+                        final Uri uri = cr.insert(mContentUri, ClassRowConverter.clsToVals(row, null, clsFields));
+                        if (uri == null) return (RunReturn) (Long) (-1L);
+                        insertedIds[i] = Long.parseLong(uri.getLastPathSegment());
+                        ClassRowConverter.setIdField(row, idField, insertedIds[i]);
+                    }
                 } else
                     throw new IllegalStateException("Database helper was null.");
+                return (RunReturn) insertedIds;
             case UPDATE: {
-                final ContentValues values = ClassRowConverter.clsToVals(mValues[mValues.length - 1], mOnlyUpdate);
+                final ContentValues values = ClassRowConverter.clsToVals(mValues[mValues.length - 1], mOnlyUpdate, clsFields);
                 if (mDatabase != null)
-                    return mDatabase.update(values, mSelection, mSelectionArgs);
+                    return (RunReturn) (Integer) mDatabase.update(values, mSelection, mSelectionArgs);
                 else if (mContentUri != null)
-                    return cr.update(mContentUri, values, mSelection, mSelectionArgs);
+                    return (RunReturn) (Integer) cr.update(mContentUri, values, mSelection, mSelectionArgs);
                 else
                     throw new IllegalStateException("Database helper was null.");
             }
             case DELETE: {
                 if (mDatabase != null)
-                    return mDatabase.delete(mSelection, mSelectionArgs);
+                    return (RunReturn) (Integer) mDatabase.delete(mSelection, mSelectionArgs);
                 else if (mContentUri != null)
-                    return cr.delete(mContentUri, mSelection, mSelectionArgs);
+                    return (RunReturn) (Integer) cr.delete(mContentUri, mSelection, mSelectionArgs);
                 else
                     throw new IllegalStateException("Database helper was null.");
             }
         }
-        return -1;
+        return null;
     }
 
-    public void run(@NonNull final RunCallback callback) {
+    public void run(@NonNull final RunCallback<RunReturn> callback) {
         new Thread(new Runnable() {
             @Override
             public void run() {
-                final long changed = Query.this.run();
+                final RunReturn changed = Query.this.run();
                 if (mInquiry.mHandler == null) return;
                 mInquiry.mHandler.post(new Runnable() {
                     @Override

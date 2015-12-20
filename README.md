@@ -8,7 +8,7 @@ Read and write class objects from tables in a database. Let Inquiry handle the h
 
 # Gradle Dependency
 
-[ ![JitPack](https://img.shields.io/github/release/afollestad/inquiry.svg?label=inquiry) ](https://jitpack.io/#afollestad/inquiry)
+[ ![JitPack](https://img.shields.io/github/release/afollestad/inquiry.svg?label=jitpack) ](https://jitpack.io/#afollestad/inquiry)
 [![Build Status](https://travis-ci.org/afollestad/inquiry.svg)](https://travis-ci.org/afollestad/inquiry)
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg?style=flat-square)](https://www.apache.org/licenses/LICENSE-2.0.html)
 
@@ -31,7 +31,7 @@ Add this to your module's `build.gradle` file:
 
 ```gradle
 dependencies {
-    compile 'com.github.afollestad:inquiry:1.4.0'
+    compile 'com.github.afollestad:inquiry:2.0.0'
 }
 ```
 
@@ -230,7 +230,7 @@ Person one = new Person("Waverly", 18, 8.9f, false);
 Person two = new Person("Natalie", 42, 10f, false);
 Person three = new Person("Aidan", 20, 5.7f, true);
 
-long insertedCount = Inquiry.get()
+Long[] insertedIds = Inquiry.get()
         .insertInto("people", Person.class)
         .values(one, two, three)
         .run();
@@ -246,11 +246,14 @@ Inquiry.get()
     .values(one, two, three)
     .run(new RunCallback() {
         @Override
-        public void result(long insertedCount) {
+        public void result(Long[] insertedIds) {
             // Do something
         }
     });
 ```
+
+If your row class contains a field called `_id` with `autoIncrement` set to true, this field will 
+automatically be updated to a newly inserted row ID.
 
 # Updating Rows
 
@@ -261,7 +264,7 @@ Updating is similar to insertion, however it results in changed rows rather than
 ```java
 Person two = new Person("Natalie", 42, 10f, false);
 
-long updatedCount = Inquiry.get()
+Integer updatedCount = Inquiry.get()
     .update("people", Person.class)
     .values(two)
     .where("name = ?", "Aidan")
@@ -279,7 +282,7 @@ what columns you want to be changed using `onlyUpdate`:
 ```java
 Person two = new Person("Natalie", 42, 10f, false);
 
-long updatedCount = Inquiry.get()
+Integer updatedCount = Inquiry.get()
     .update("people", Person.class)
     .values(two)
     .where("name = ?", "Aidan")
@@ -295,7 +298,7 @@ the `age` and `rank` columns of the updated rows. The other columns will be left
 Deletion is simple:
 
 ```java
-int deletedCount = Inquiry.get()
+Integer deletedCount = Inquiry.get()
     .deleteFrom("people")
     .where("age = ?", 20)
     .run();

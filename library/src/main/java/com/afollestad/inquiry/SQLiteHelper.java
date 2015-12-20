@@ -47,6 +47,7 @@ class SQLiteHelper extends SQLiteOpenHelper {
     }
 
     public final int delete(String selection, String[] selectionArgs) {
+        if (selection == null) selection = "1";
         return getWritableDatabase().delete(mTableName, selection, selectionArgs);
     }
 
