@@ -200,6 +200,22 @@ If you wanted, you could skip using the question marks and only use one paramete
 *However*, using the question marks and filler parameters can be easier to read if you're filling them in
 with variables. Plus, this will automatically escape any strings that contain reserved SQL characters.
 
+---
+
+Inquiry includes a convenience method called `atPosition()` which lets you perform operations on a specific row
+in your tables:
+
+```java
+Person result = Inquiry.get()
+    .selectFrom("people", Person.class)
+    .atPosition(24)
+    .one();
+```
+
+Behind the scenes, it's using `where(String)` to select the row. `atPosition()` moves to a row position 
+and retrieves the row's `_id` column. So, tables need to have an `_id` column (which is unique for every row) 
+for this method to work.
+
 #### Sorting and Limiting
 
 This code would limit the maximum number of rows returned to 100. It would sort the results by values
@@ -274,6 +290,10 @@ Integer updatedCount = Inquiry.get()
 The above will update all rows whose name is equal to *"Aidan"*, setting all columns to the values in the `Person`
 object called `two`. If you didn't specify `where()` args, every row in the table would be updated.
 
+---
+
+Like querying, `atPosition(int)` can be used in place of `where(String)` to update a specific row.
+
 #### Updating Specific Columns
 
 Sometimes, you don't want to change every column in a row when you update them. You can choose specifically
@@ -306,6 +326,10 @@ Integer deletedCount = Inquiry.get()
 
 The above code results in any rows with their age column set to *20* removed. If you didn't
 specify `where()` args, every row in the table would be deleted.
+
+---
+
+Like querying, `atPosition(int)` can be used in place of `where(String)` to delete a specific row.
 
 # Dropping Tables
 

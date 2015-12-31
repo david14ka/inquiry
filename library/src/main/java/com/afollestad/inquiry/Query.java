@@ -4,6 +4,7 @@ import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.net.Uri;
+import android.support.annotation.IntRange;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
@@ -58,6 +59,38 @@ public final class Query<RowType, RunReturn> {
     private int mLimit;
     private RowType[] mValues;
 
+    public Query<RowType, RunReturn> atPosition(@IntRange(from = 0, to = Integer.MAX_VALUE) int position) {
+        Cursor cursor;
+        if (mContentUri != null) {
+            cursor = mInquiry.mContext.getContentResolver().query(mContentUri, null, mSelection, mSelectionArgs, null);
+        } else {
+            if (mDatabase == null) throw new IllegalStateException("Database helper was null.");
+            cursor = mDatabase.query(null, mSelection, mSelectionArgs, null);
+        }
+        if (cursor != null) {
+            if (position < 0 || position >= cursor.getCount()) {
+                cursor.close();
+                throw new IndexOutOfBoundsException(String.format("Position %d is out of bounds for cursor of size %d.",
+                        position, cursor.getCount()));
+            }
+            if (!cursor.moveToPosition(position)) {
+                cursor.close();
+                throw new IllegalStateException(String.format("Unable to move to position %d in cursor of size %d.",
+                        position, cursor.getCount()));
+            }
+            final int idIndex = cursor.getColumnIndex("_id");
+            if (idIndex < 0) {
+                cursor.close();
+                throw new IllegalStateException("Didn't find a column named _id in this Cursor.");
+            }
+            final int idValue = cursor.getInt(idIndex);
+            mSelection = "_id = ?";
+            mSelectionArgs = new String[]{Integer.toString(idValue)};
+            cursor.close();
+        }
+        return this;
+    }
+
     public Query<RowType, RunReturn> where(@NonNull String selection, @Nullable Object... selectionArgs) {
         mSelection = selection;
         if (selectionArgs != null) {
@@ -101,7 +134,7 @@ public final class Query<RowType, RunReturn> {
             if (limit > -1) sort += String.format(" LIMIT %d", limit);
             Cursor cursor;
             if (mContentUri != null) {
-                cursor = mInquiry.mContext.getContentResolver().query(mContentUri, projection, mSelection, mSelectionArgs, mSortOrder);
+                cursor = mInquiry.mContext.getContentResolver().query(mContentUri, projection, mSelection, mSelectionArgs, sort);
             } else {
                 if (mDatabase == null) throw new IllegalStateException("Database helper was null.");
                 cursor = mDatabase.query(projection, mSelection, mSelectionArgs, sort);
