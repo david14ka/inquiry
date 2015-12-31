@@ -11,13 +11,11 @@ import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
-import android.util.Log;
 import android.widget.Toast;
 
 import com.afollestad.inquiry.Inquiry;
 import com.afollestad.inquiry.annotations.Column;
 import com.afollestad.inquiry.callbacks.GetCallback;
-import com.afollestad.inquiry.callbacks.RunCallback;
 
 /**
  * @author Aidan Follestad (afollestad)
@@ -53,32 +51,6 @@ public class MainActivity extends AppCompatActivity {
         list.setAdapter(mAdapter);
 
         reload();
-
-        Inquiry.get()
-                .deleteFrom("test_table", TestRow.class)
-                .run(new RunCallback<Integer>() {
-                    @Override
-                    public void result(Integer changed) {
-
-                        Inquiry.get()
-                                .insertInto("test_table", TestRow.class)
-                                .values(new TestRow("Aidan"), new TestRow("Waverly"))
-                                .run(new RunCallback<Long[]>() {
-                                    @Override
-                                    public void result(Long[] changed) {
-
-                                        Inquiry.get()
-                                                .selectFrom("test_table", TestRow.class)
-                                                .all(new GetCallback<TestRow>() {
-                                                    @Override
-                                                    public void result(@Nullable TestRow[] result) {
-                                                        Log.d("Test", "Test");
-                                                    }
-                                                });
-                                    }
-                                });
-                    }
-                });
     }
 
     private void reload() {
@@ -101,7 +73,8 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
-        Inquiry.deinit();
+        if (isFinishing())
+            Inquiry.deinit();
     }
 
     @Override
