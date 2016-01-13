@@ -181,7 +181,13 @@ class ClassRowConverter {
                     field.set(row, deserializeObject(blob, fieldType));
                 break;
             case DataType.REAL:
-                if (fieldType == float.class || fieldType == Float.class)
+                if (fieldType == short.class || fieldType == Short.class)
+                    field.set(row, (short) cursor.getFloat(columnIndex));
+                else if (fieldType == int.class || fieldType == Integer.class)
+                    field.set(row, (int) cursor.getFloat(columnIndex));
+                else if (fieldType == long.class || fieldType == Long.class)
+                    field.set(row, (long) cursor.getFloat(columnIndex));
+                else if (fieldType == float.class || fieldType == Float.class)
                     field.set(row, cursor.getFloat(columnIndex));
                 else if (fieldType == double.class || fieldType == Double.class)
                     field.set(row, cursor.getDouble(columnIndex));
@@ -198,6 +204,10 @@ class ClassRowConverter {
                     field.set(row, cursor.getLong(columnIndex));
                 else if (fieldType == boolean.class || fieldType == Boolean.class)
                     field.set(row, cursor.getInt(columnIndex) == 1);
+                else if (fieldType == float.class || fieldType == Float.class)
+                    field.set(row, (float) cursor.getInt(columnIndex));
+                else if (fieldType == double.class || fieldType == Double.class)
+                    field.set(row, (double) cursor.getInt(columnIndex));
                 else
                     throw new IllegalStateException(String.format("Column %s of type INTEGER (decimal) doesn't match field of type %s",
                             columnName, fieldType.getName()));
