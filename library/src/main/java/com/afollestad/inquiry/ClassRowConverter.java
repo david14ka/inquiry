@@ -8,6 +8,7 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
 import com.afollestad.inquiry.annotations.Column;
+import com.afollestad.inquiry.annotations.Reference;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -87,21 +88,25 @@ class ClassRowConverter {
 
     @Nullable
     private static String getFieldSchema(Field field) {
-        Column colAnnotation = field.getAnnotation(Column.class);
+        final Reference refAnnotation = field.getAnnotation(Reference.class);
+        if (refAnnotation != null)
+            return String.format("%s INTEGER", selectColumnName(refAnnotation, field));
+        final Column colAnnotation = field.getAnnotation(Column.class);
         if (colAnnotation == null) return null;
-        String colName = selectColumnName(colAnnotation, field);
-        colName += " " + getClassTypeString(field.getType());
+        final StringBuilder colName = new StringBuilder(selectColumnName(colAnnotation, field));
+        colName.append(" ");
+        colName.append(getClassTypeString(field.getType()));
         if (colAnnotation.primaryKey())
-            colName += " PRIMARY KEY";
+            colName.append(" PRIMARY KEY");
         if (colAnnotation.autoIncrement())
-            colName += " AUTOINCREMENT";
+            colName.append(" AUTOINCREMENT");
         if (colAnnotation.notNull())
-            colName += " NOT NULL";
-        return colName;
+            colName.append(" NOT NULL");
+        return colName.toString();
     }
 
     public static String getClassSchema(Class<?> cls) {
-        StringBuilder sb = new StringBuilder();
+        final StringBuilder sb = new StringBuilder();
         List<Field> fields = getAllFields(cls);
         for (Field fld : fields) {
             fld.setAccessible(true);
@@ -112,7 +117,7 @@ class ClassRowConverter {
             sb.append(schema);
         }
         if (sb.length() == 0)
-            throw new IllegalStateException("Class " + cls.getName() + " has no column fields.");
+            throw new IllegalStateException("Class " + cls.getName() + " has no column/reference fields.");
         return sb.toString();
     }
 
@@ -149,12 +154,26 @@ class ClassRowConverter {
             return;
         }
 
-        final String columnName = selectColumnName(field.getAnnotation(Column.class), field);
+        final Reference refAnn = field.getAnnotation(Reference.class);
+        if (refAnn != null) {
+            final long id = cursor.getLong(columnIndex);
+            final Object val = Inquiry.get()
+                    .selectFrom(refAnn.tableName(), field.getType())
+                    .where("_id = ?", id)
+                    .one();
+            field.set(row, val);
+            return;
+        }
 
+        final String columnName = selectColumnName(field.getAnnotation(Column.class), field);
         switch (columnType) {
             case DataType.BLOB:
                 byte[] blob = cursor.getBlob(columnIndex);
-                if (fieldType == byte[].class)
+                if (blob == null)
+                    field.set(row, null);
+                else if (fieldType == byte.class || fieldType == Byte.class)
+                    field.set(row, blob[0]);
+                else if (fieldType == byte[].class || fieldType == Byte[].class)
                     field.set(row, blob);
                 else if (fieldType == Bitmap.class)
                     field.set(row, BitmapFactory.decodeByteArray(blob, 0, blob.length));
@@ -167,7 +186,7 @@ class ClassRowConverter {
                 else if (fieldType == double.class || fieldType == Double.class)
                     field.set(row, cursor.getDouble(columnIndex));
                 else
-                    throw new IllegalStateException(String.format("Column %s of type REAL (float) doesn't match field of type %s",
+                    throw new IllegalStateException(String.format("Column %s of type REAL (float/double) doesn't match field of type %s",
                             columnName, fieldType.getName()));
                 break;
             case DataType.INTEGER:
@@ -180,7 +199,7 @@ class ClassRowConverter {
                 else if (fieldType == boolean.class || fieldType == Boolean.class)
                     field.set(row, cursor.getInt(columnIndex) == 1);
                 else
-                    throw new IllegalStateException(String.format("Column %s of type INTEGER (float) doesn't match field of type %s",
+                    throw new IllegalStateException(String.format("Column %s of type INTEGER (decimal) doesn't match field of type %s",
                             columnName, fieldType.getName()));
                 break;
             case DataType.TEXT:
@@ -188,11 +207,11 @@ class ClassRowConverter {
                 if (fieldType == String.class || fieldType == CharSequence.class)
                     field.set(row, text);
                 else if (fieldType == char[].class || fieldType == Character[].class)
-                    field.set(row, text.length() > 0 ? text.toCharArray() : null);
+                    field.set(row, text != null && text.length() > 0 ? text.toCharArray() : null);
                 else if (fieldType == char.class || fieldType == Character.class)
-                    field.set(row, text.length() > 0 ? text.charAt(0) : null);
+                    field.set(row, text != null && text.length() > 0 ? text.charAt(0) : null);
                 else
-                    throw new IllegalStateException(String.format("Column %s of type REAL (float) doesn't match field of type %s",
+                    throw new IllegalStateException(String.format("Column %s of type TEXT (string) doesn't match field of type %s",
                             columnName, fieldType.getName()));
                 break;
         }
@@ -204,8 +223,18 @@ class ClassRowConverter {
     private static HashMap<String, Field> buildFieldCache(Class<?> cls) {
         final HashMap<String, Field> cache = new HashMap<>();
         final List<Field> fields = getAllFields(cls);
-        for (Field fld : fields)
-            cache.put(selectColumnName(null, fld), fld);
+        for (Field fld : fields) {
+            String name = null;
+            final Reference refAnn = fld.getAnnotation(Reference.class);
+            if (refAnn != null)
+                name = selectColumnName(refAnn, fld);
+            final Column colAnn = fld.getAnnotation(Column.class);
+            if (colAnn != null)
+                name = selectColumnName(colAnn, fld);
+            if (name == null)
+                continue;
+            cache.put(name, fld);
+        }
         return cache;
     }
 
@@ -229,13 +258,6 @@ class ClassRowConverter {
         }
         return row;
     }
-
-//    public static ContentValues[] clsArrayToVals(@NonNull Object[] rows, @Nullable String[] projection) {
-//        ContentValues[] vals = new ContentValues[rows.length];
-//        for (int i = 0; i < rows.length; i++)
-//            vals[i] = clsToVals(rows[i], projection, null);
-//        return vals;
-//    }
 
     @Nullable
     public static Field getIdField(@Nullable List<Field> fields) {
@@ -269,11 +291,25 @@ class ClassRowConverter {
         final List<Field> fields = getAllFields(cls);
         for (Field fld : fields) {
             fld.setAccessible(true);
-            Column colAnn = fld.getAnnotation(Column.class);
-            if (colAnn == null) continue;
-            projection.add(selectColumnName(colAnn, fld));
+            final Reference refAnn = fld.getAnnotation(Reference.class);
+            if (refAnn != null) {
+                projection.add(selectColumnName(refAnn, fld));
+            } else {
+                final Column colAnn = fld.getAnnotation(Column.class);
+                if (colAnn == null) continue;
+                projection.add(selectColumnName(colAnn, fld));
+            }
         }
         return projection.toArray(new String[projection.size()]);
+    }
+
+    private static String selectColumnName(Reference ann, Field fld) {
+        if (ann == null)
+            ann = fld.getAnnotation(Reference.class);
+        if (ann == null) return fld.getName();
+        if (ann.columnName() != null && !ann.columnName().trim().isEmpty())
+            return ann.columnName();
+        return fld.getName();
     }
 
     private static String selectColumnName(Column ann, Field fld) {
@@ -308,14 +344,34 @@ class ClassRowConverter {
                 if (projection != null && projection.length > 0) {
                     boolean skip = true;
                     for (String proj : projection) {
-                        if (proj != null && proj.equalsIgnoreCase(selectColumnName(null, fld))) {
+                        if (proj != null && proj.equalsIgnoreCase(selectColumnName((Column) null, fld))) {
                             skip = false;
                             break;
                         }
                     }
                     if (skip) continue;
                 }
-                Column colAnn = fld.getAnnotation(Column.class);
+
+                final Reference refAnn = fld.getAnnotation(Reference.class);
+                if (refAnn != null) {
+                    final Object fldVal = fld.get(row);
+                    long id = -1;
+                    if (fldVal != null) {
+                        final Long[] ids = Inquiry.get()
+                                .insertInto(refAnn.tableName(), fld.getType())
+                                .value(fldVal)
+                                .run();
+                        if (ids != null && ids.length > 0)
+                            id = ids[0];
+                        final Field idField = getIdField(getAllFields(fld.getType()));
+                        setIdField(fldVal, idField, id);
+                    }
+                    // Insert reference row ID
+                    vals.put(selectColumnName(refAnn, fld), id);
+                    continue;
+                }
+
+                final Column colAnn = fld.getAnnotation(Column.class);
                 if (colAnn == null) continue;
                 columnCount++;
                 if (colAnn.autoIncrement()) continue;
@@ -324,7 +380,6 @@ class ClassRowConverter {
                 if (fldVal == null) continue;
 
                 final String columnName = selectColumnName(colAnn, fld);
-
                 if (fldType.equals(String.class)) {
                     vals.put(columnName, (String) fldVal);
                 } else if (fldType.equals(char[].class) || fldType.equals(Character[].class)) {
@@ -345,12 +400,15 @@ class ClassRowConverter {
                     vals.put(columnName, ((boolean) fldVal) ? 1 : 0);
                 } else if (fldType.equals(Bitmap.class)) {
                     vals.put(columnName, bitmapToBytes((Bitmap) fldVal));
+                } else if (fldType.equals(Byte.class) || fldType.equals(byte.class)) {
+                    vals.put(columnName, (byte) fldVal);
                 } else if (fldType.equals(Byte[].class) || fldType.equals(byte[].class)) {
                     vals.put(columnName, (byte[]) fldVal);
                 } else if (fldVal instanceof Serializable) {
                     vals.put(columnName, serializeObject(fldVal));
                 } else {
-                    throw new IllegalStateException("Class " + fldType.getName() + " should be marked as Serializable in order to be inserted.");
+                    throw new IllegalStateException(String.format("Class %s should be marked as Serializable, or field %s should use the @Reference annotation instead of @Column.",
+                            fldType.getName(), fld.getName()));
                 }
             }
             if (columnCount == 0)

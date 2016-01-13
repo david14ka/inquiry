@@ -96,7 +96,7 @@ public final class Query<RowType, RunReturn> {
         if (selectionArgs != null) {
             mSelectionArgs = new String[selectionArgs.length];
             for (int i = 0; i < selectionArgs.length; i++)
-                mSelectionArgs[i] = (String) selectionArgs[i];
+                mSelectionArgs[i] = (selectionArgs[i] + "");
         } else {
             mSelectionArgs = null;
         }
@@ -110,6 +110,13 @@ public final class Query<RowType, RunReturn> {
 
     public Query<RowType, RunReturn> limit(int limit) {
         mLimit = limit;
+        return this;
+    }
+
+    @SuppressWarnings("unchecked")
+    protected final Query<RowType, RunReturn> value(@NonNull Object value) {
+        mValues = (RowType[]) Array.newInstance(mRowClass, 1);
+        Array.set(mValues, 0, value);
         return this;
     }
 
