@@ -14,51 +14,12 @@ import android.support.v7.widget.RecyclerView;
 import android.widget.Toast;
 
 import com.afollestad.inquiry.Inquiry;
-import com.afollestad.inquiry.annotations.Column;
-import com.afollestad.inquiry.annotations.Reference;
 import com.afollestad.inquiry.callbacks.GetCallback;
 
 /**
  * @author Aidan Follestad (afollestad)
  */
 public class MainActivity extends AppCompatActivity {
-
-    public static class Person {
-
-        @Column(autoIncrement = true, name = "_id", primaryKey = true)
-        private long mId;
-        @Column(name = "name")
-        private String mName;
-        @Column(name = "age")
-        private int mAge;
-        @Reference(columnName = "spouse", tableName = "spouses")
-        private SimplePerson mSpouse;
-
-        public Person() {
-        }
-
-        public Person(String name, int age, SimplePerson spouse) {
-            mName = name;
-            mAge = age;
-            mSpouse = spouse;
-        }
-    }
-
-    public static class SimplePerson {
-
-        @Column(autoIncrement = true, name = "_id", primaryKey = true)
-        private long mId;
-        @Column
-        private String mName;
-
-        public SimplePerson() {
-        }
-
-        public SimplePerson(String name) {
-            mName = name;
-        }
-    }
-
 
     private MainAdapter mAdapter;
 
