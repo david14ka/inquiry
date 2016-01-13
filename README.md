@@ -176,8 +176,11 @@ public class Person {
 **During insertion**, Inquiry will insert the `spouse` Field into the table `spouses`. The value of 
 the `spouse` column in the current table will be set to the *_id* of the new row in the `spouses` table.
 
-**During querying**, Inquiry will set the `@Reference` annotation, and do an automatic lookup for you.
-The value of the `spouse` field is automatically pulled from the second table.
+**During querying**, Inquiry will see the `@Reference` annotation, and do an automatic lookup for you.
+The value of the `spouse` field is automatically pulled from the second table into the current table.
+
+Basically, this allows you to have non-primitive column types that are blazing fast to insert or query. 
+No serialization is necessary.
 
 ---
 
