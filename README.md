@@ -32,7 +32,7 @@ Add this to your module's `build.gradle` file (make sure the version matches the
 ```gradle
 dependencies {
     ...
-    compile 'com.github.afollestad:inquiry:2.1.0'
+    compile 'com.github.afollestad:inquiry:2.0.1'
 }
 ```
 
@@ -143,7 +143,7 @@ only be used with INTEGER columns (short, int, or long fields), however.
 
 ---
 
-# References
+# References (Coming Soon)
 
 In addition to the `@Column` annotation, Inquiry has a special annotation called `@Reference`. This 
 annotation is used to link a field to another table.
@@ -180,7 +180,8 @@ the `spouse` column in the current table will be set to the *_id* of the new row
 The value of the `spouse` field is automatically pulled from the second table into the current table.
 
 Basically, this allows you to have non-primitive column types that are blazing fast to insert or query. 
-No serialization is necessary.
+No serialization is necessary. You can even have two rows which reference the same object (a single object 
+with the same `_id` value).
 
 ---
 
