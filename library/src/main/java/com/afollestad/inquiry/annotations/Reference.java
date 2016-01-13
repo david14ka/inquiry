@@ -15,5 +15,5 @@ public @interface Reference {
 
     String columnName() default "";
 
-    String tableName() default "";
+    String tableName();
 }

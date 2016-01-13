@@ -27,12 +27,12 @@ allprojects {
 
 ### Dependency
 
-Add this to your module's `build.gradle` file:
+Add this to your module's `build.gradle` file (make sure the version matches the version on the JitPack badge above):
 
 ```gradle
 dependencies {
     ...
-    compile 'com.github.afollestad:inquiry:2.0.1'
+    compile 'com.github.afollestad:inquiry:2.1.0'
 }
 ```
 
@@ -42,17 +42,18 @@ dependencies {
 
 1. [Quick Setup](https://github.com/afollestad/inquiry#quick-setup)
 2. [Example Row](https://github.com/afollestad/inquiry#example-row)
-3. [Querying Rows](https://github.com/afollestad/inquiry#querying-rows)
+3. [References](https://github.com/afollestad/inquiry#references)
+4. [Querying Rows](https://github.com/afollestad/inquiry#querying-rows)
     1. [Basics](https://github.com/afollestad/inquiry#basics)
     2. [Where](https://github.com/afollestad/inquiry#wheren)
     3. [Sorting and Limiting](https://github.com/afollestad/inquiry#sorting-and-limiting)
-4. [Inserting Rows](https://github.com/afollestad/inquiry#inserting-rows)
-5. [Updating Rows](https://github.com/afollestad/inquiry#updating-rows)
+5. [Inserting Rows](https://github.com/afollestad/inquiry#inserting-rows)
+6. [Updating Rows](https://github.com/afollestad/inquiry#updating-rows)
     1. [Basics](https://github.com/afollestad/inquiry#basics-1)
     2. [Updating Specific Columns](https://github.com/afollestad/inquiry#updating-specific-columns)
-6. [Deleting Rows](https://github.com/afollestad/inquiry#deleting-rows)
-7. [Dropping Tables](https://github.com/afollestad/inquiry#dropping-tables)
-8. [Extra: Accessing Content Providers](https://github.com/afollestad/inquiry#extra-accessing-content-providers)
+7. [Deleting Rows](https://github.com/afollestad/inquiry#deleting-rows)
+8. [Dropping Tables](https://github.com/afollestad/inquiry#dropping-tables)
+9. [Extra: Accessing Content Providers](https://github.com/afollestad/inquiry#extra-accessing-content-providers)
     1. [Initialization](https://github.com/afollestad/inquiry#initialization)
     2. [Basics](https://github.com/afollestad/inquiry#basics-2)
 
@@ -102,11 +103,12 @@ public class Person {
         // Default constructor is needed so Inquiry can auto construct instances
     }
 
-    public Person(String name, int age, float rank, boolean admin) {
+    public Person(String name, int age, float rank, boolean admin, Person spouse) {
         this.name = name;
         this.age = age;
         this.rank = rank;
         this.admin = admin;
+        this.spouse = spouse;
     }
 
     @Column(name = "_id", primaryKey = true, notNull = true, autoIncrement = true)
@@ -119,6 +121,10 @@ public class Person {
     public float rank;
     @Column
     public boolean admin;
+    
+    // Reference annotation is discussed in the next section
+    @Reference(columnName = "spouse", tableName = "spouses")
+    public Person spouse;
 }
 ```
 
@@ -134,6 +140,44 @@ table can have the same value for that specific column. This is commonly used wi
 * `autoIncrement` indicates that you don't manually set the value of this column. Every time
 you insert a row into the table, this column will be incremented by one automatically. This can
 only be used with INTEGER columns (short, int, or long fields), however.
+
+---
+
+# References
+
+In addition to the `@Column` annotation, Inquiry has a special annotation called `@Reference`. This 
+annotation is used to link a field to another table.
+
+Let's take the `Person` class from the previous section, but simplify it a bit:
+
+```java
+public class Person {
+
+    public Person() {
+        // Default constructor is needed so Inquiry can auto construct instances
+    }
+
+    public Person(String name, Person spouse) {
+        this.name = name;
+        this.spouse = spouse;
+    }
+
+    @Column(name = "_id", primaryKey = true, notNull = true, autoIncrement = true)
+    public long id;
+    @Column
+    public String name;
+    
+    // Column name is optional, it will use the name of the field by default
+    @Reference(columnName = "spouse", tableName = "spouses")
+    public Person spouse;
+}
+```
+
+**During insertion**, Inquiry will insert the `spouse` Field into the table `spouses`. The value of 
+the `spouse` column in the current table will be set to the *_id* of the new row in the `spouses` table.
+
+**During querying**, Inquiry will set the `@Reference` annotation, and do an automatic lookup for you.
+The value of the `spouse` field is automatically pulled from the second table.
 
 ---
 
