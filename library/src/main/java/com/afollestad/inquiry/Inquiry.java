@@ -1,6 +1,7 @@
 package com.afollestad.inquiry;
 
 import android.content.Context;
+import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
 import android.os.Handler;
 import android.support.annotation.IntRange;
@@ -54,8 +55,9 @@ public final class Inquiry {
     }
 
     public void dropTable(@NonNull String tableName) {
-        new SQLiteHelper(mContext, mDatabaseName, null, null, mDatabaseVersion)
-                .getWritableDatabase().execSQL("DROP TABLE IF EXISTS " + tableName);
+        final SQLiteDatabase db = new SQLiteHelper(mContext, mDatabaseName, null, null, mDatabaseVersion).getWritableDatabase();
+        db.execSQL("DROP TABLE IF EXISTS " + tableName);
+        db.close();
     }
 
     @NonNull

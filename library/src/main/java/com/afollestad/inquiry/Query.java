@@ -157,9 +157,11 @@ public final class Query<RowType, RunReturn> {
                     }
                 }
                 cursor.close();
+                close();
                 return results;
             }
         }
+        close();
         return null;
     }
 
@@ -208,7 +210,6 @@ public final class Query<RowType, RunReturn> {
                         final RowType row = mValues[i];
                         insertedIds[i] = mDatabase.insert(ClassRowConverter.clsToVals(row, null, clsFields));
                         ClassRowConverter.setIdField(row, idField, insertedIds[i]);
-
                     }
                 } else if (mContentUri != null) {
                     for (int i = 0; i < mValues.length; i++) {
@@ -220,20 +221,25 @@ public final class Query<RowType, RunReturn> {
                     }
                 } else
                     throw new IllegalStateException("Database helper was null.");
+                close();
                 return (RunReturn) insertedIds;
             case UPDATE: {
                 final ContentValues values = ClassRowConverter.clsToVals(mValues[mValues.length - 1], mOnlyUpdate, clsFields);
-                if (mDatabase != null)
-                    return (RunReturn) (Integer) mDatabase.update(values, mSelection, mSelectionArgs);
-                else if (mContentUri != null)
+                if (mDatabase != null) {
+                    RunReturn value = (RunReturn) (Integer) mDatabase.update(values, mSelection, mSelectionArgs);
+                    close();
+                    return value;
+                } else if (mContentUri != null)
                     return (RunReturn) (Integer) cr.update(mContentUri, values, mSelection, mSelectionArgs);
                 else
                     throw new IllegalStateException("Database helper was null.");
             }
             case DELETE: {
-                if (mDatabase != null)
-                    return (RunReturn) (Integer) mDatabase.delete(mSelection, mSelectionArgs);
-                else if (mContentUri != null)
+                if (mDatabase != null) {
+                    RunReturn value = (RunReturn) (Integer) mDatabase.delete(mSelection, mSelectionArgs);
+                    close();
+                    return value;
+                } else if (mContentUri != null)
                     return (RunReturn) (Integer) cr.delete(mContentUri, mSelection, mSelectionArgs);
                 else
                     throw new IllegalStateException("Database helper was null.");
@@ -256,5 +262,9 @@ public final class Query<RowType, RunReturn> {
                 });
             }
         }).start();
+    }
+
+    public void close() {
+        if (mDatabase != null) mDatabase.close();
     }
 }
