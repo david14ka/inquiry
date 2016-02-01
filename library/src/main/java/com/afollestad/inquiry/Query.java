@@ -135,6 +135,8 @@ public final class Query<RowType, RunReturn> {
     @Nullable
     private RowType[] getInternal(int limit) {
         if (mRowClass == null) return null;
+        else if (mInquiry.mContext == null)
+            throw new IllegalStateException("Inquiry's context was null. Deinit() was probably run already.");
         final String[] projection = ClassRowConverter.generateProjection(mRowClass);
         if (mQueryType == SELECT) {
             String sort = mSortOrder;
@@ -199,6 +201,8 @@ public final class Query<RowType, RunReturn> {
     public RunReturn run() {
         if (mQueryType != DELETE && (mValues == null || mValues.length == 0))
             throw new IllegalStateException("No values were provided for this query to run.");
+        else if (mInquiry.mContext == null)
+            throw new IllegalStateException("Inquiry's context was null. Deinit() was probably run already.");
         final ContentResolver cr = mInquiry.mContext.getContentResolver();
         final List<Field> clsFields = ClassRowConverter.getAllFields(mRowClass);
         switch (mQueryType) {
