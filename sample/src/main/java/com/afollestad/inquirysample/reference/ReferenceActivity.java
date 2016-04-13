@@ -32,9 +32,11 @@ public class ReferenceActivity extends AppCompatActivity {
         setContentView(R.layout.activity_reference);
 
         RecyclerView list = (RecyclerView) findViewById(R.id.list);
-        adapter = new ReferenceAdapter();
-        list.setLayoutManager(new LinearLayoutManager(this));
-        list.setAdapter(adapter);
+        if (list != null) {
+            adapter = new ReferenceAdapter();
+            list.setLayoutManager(new LinearLayoutManager(this));
+            list.setAdapter(adapter);
+        }
 
         reload();
     }

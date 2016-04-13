@@ -3,6 +3,7 @@ package com.afollestad.inquirysample;
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.support.annotation.NonNull;
@@ -34,15 +35,18 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         RecyclerView list = (RecyclerView) findViewById(R.id.list);
-        mAdapter = new MainAdapter();
-        list.setLayoutManager(new LinearLayoutManager(this));
-        list.setAdapter(mAdapter);
+        if (list != null){
+            mAdapter = new MainAdapter();
+            list.setLayoutManager(new LinearLayoutManager(this));
+            list.setAdapter(mAdapter);
+        }
 
         reload();
     }
 
     private void reload() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) !=
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN &&
+                ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) !=
                 PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, 69);
             return;
