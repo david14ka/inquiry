@@ -8,22 +8,12 @@ Read and write class objects from tables in a database. Let Inquiry handle the h
 
 # Gradle Dependency
 
-[![Release](https://jitpack.io/v/afollestad/inquiry.svg)](https://jitpack.io/#afollestad/inquiry)
+[ ![jCenter](https://api.bintray.com/packages/drummer-aidan/maven/inquiry/images/download.svg) ](https://bintray.com/drummer-aidan/maven/inquiry/_latestVersion)
 [![Build Status](https://travis-ci.org/afollestad/inquiry.svg)](https://travis-ci.org/afollestad/inquiry)
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg?style=flat-square)](https://www.apache.org/licenses/LICENSE-2.0.html)
 
-### Repository
-
-Add this in your root `build.gradle` file (**not** your module `build.gradle` file):
-
-```gradle
-allprojects {
-	repositories {
-		...
-		maven { url "https://jitpack.io" }
-	}
-}
-```
+The Gradle dependency is available via [jCenter](https://bintray.com/drummer-aidan/maven/material-camera/view).
+jCenter is the default Maven repository used by Android Studio.
 
 ### Dependency
 
