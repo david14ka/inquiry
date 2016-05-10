@@ -22,7 +22,7 @@ Add this to your module's `build.gradle` file (make sure the version matches the
 ```gradle
 dependencies {
     ...
-    compile 'com.github.afollestad:inquiry:2.0.1'
+    compile 'com.afollestad:inquiry:2.0.1'
 }
 ```
 
