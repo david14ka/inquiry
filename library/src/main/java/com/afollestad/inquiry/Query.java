@@ -14,6 +14,7 @@ import com.afollestad.inquiry.callbacks.RunCallback;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * @author Aidan Follestad (afollestad)
@@ -134,13 +135,14 @@ public final class Query<RowType, RunReturn> {
     @SuppressWarnings("unchecked")
     @Nullable
     private RowType[] getInternal(int limit) {
-        if (mRowClass == null) return null;
+        if (mRowClass == null)
+            return null;
         else if (mInquiry.mContext == null)
-            throw new IllegalStateException("Inquiry's context was null. Deinit() was probably run already.");
+            return null;
         final String[] projection = ClassRowConverter.generateProjection(mRowClass);
         if (mQueryType == SELECT) {
             String sort = mSortOrder;
-            if (limit > -1) sort += String.format(" LIMIT %d", limit);
+            if (limit > -1) sort += String.format(Locale.getDefault(), " LIMIT %d", limit);
             Cursor cursor;
             if (mContentUri != null) {
                 cursor = mInquiry.mContext.getContentResolver().query(mContentUri, projection, mSelection, mSelectionArgs, sort);
@@ -201,8 +203,13 @@ public final class Query<RowType, RunReturn> {
     public RunReturn run() {
         if (mQueryType != DELETE && (mValues == null || mValues.length == 0))
             throw new IllegalStateException("No values were provided for this query to run.");
-        else if (mInquiry.mContext == null)
-            throw new IllegalStateException("Inquiry's context was null. Deinit() was probably run already.");
+        else if (mInquiry.mContext == null) {
+            try {
+                return (RunReturn) (Integer) 0;
+            } catch (Throwable t) {
+                return (RunReturn) (Long) 0L;
+            }
+        }
         final ContentResolver cr = mInquiry.mContext.getContentResolver();
         final List<Field> clsFields = ClassRowConverter.getAllFields(mRowClass);
         switch (mQueryType) {
