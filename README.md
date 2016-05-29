@@ -17,7 +17,7 @@ jCenter is the default Maven repository used by Android Studio.
 
 ### Dependency
 
-Add this to your module's `build.gradle` file (make sure the version matches the version on the JitPack badge above):
+Add this to your module's `build.gradle` file (make sure the version matches the last [release](https://github.com/afollestad/inquiry/releases/latest)):
 
 ```gradle
 dependencies {
