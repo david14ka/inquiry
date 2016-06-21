@@ -12,7 +12,7 @@ Read and write class objects from tables in a database. Let Inquiry handle the h
 [![Build Status](https://travis-ci.org/afollestad/inquiry.svg)](https://travis-ci.org/afollestad/inquiry)
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg?style=flat-square)](https://www.apache.org/licenses/LICENSE-2.0.html)
 
-The Gradle dependency is available via [jCenter](https://bintray.com/drummer-aidan/maven/material-camera/view).
+The Gradle dependency is available via [jCenter](https://bintray.com/drummer-aidan/maven/inquiry/view).
 jCenter is the default Maven repository used by Android Studio.
 
 ### Dependency
@@ -21,8 +21,8 @@ Add this to your module's `build.gradle` file (make sure the version matches the
 
 ```gradle
 dependencies {
-    ...
-    compile 'com.afollestad:inquiry:2.0.1'
+    // ... other dependencies
+    compile 'com.afollestad:inquiry:2.0.2'
 }
 ```
 
