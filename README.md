@@ -248,7 +248,7 @@ If you wanted to find rows with specific values in their columns, you can use `w
 // NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
 Person[] result = Inquiry.get(this)
     .selectFrom("people", Person.class)
-    .where("name = ? AND age = ?", "Aidan", 20)
+    .where("name = ? AND age = ?", "Aidan", 21)
     .all();
 ```
 
@@ -261,7 +261,7 @@ vararg (or array) parameter.
 If you wanted, you could skip using the question marks and only use one parameter:
 
 ```java
-.where("name = 'Aidan' AND age = 20");
+.where("name = 'Aidan' AND age = 21");
 ```
 
 *However*, using the question marks and filler parameters can be easier to read if you're filling them in
@@ -311,9 +311,9 @@ The above sort value would sort every column by name descending (large to small,
 Insertion is pretty straight forward. This inserts three `People` into the table *"people"*:
 
 ```java
-Person one = new Person("Waverly", 18, 8.9f, false);
+Person one = new Person("Waverly", 19, 8.9f, false);
 Person two = new Person("Natalie", 42, 10f, false);
-Person three = new Person("Aidan", 20, 5.7f, true);
+Person three = new Person("Aidan", 21, 5.7f, true);
 
 // NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
 Long[] insertedIds = Inquiry.get(this)
@@ -394,7 +394,7 @@ Deletion is simple:
 // NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
 Integer deletedCount = Inquiry.get(this)
     .deleteFrom("people")
-    .where("age = ?", 20)
+    .where("age = ?", 21)
     .run();
 ```
 
