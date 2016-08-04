@@ -3,10 +3,10 @@ apply plugin: 'com.android.library'
 ext {
     PUBLISH_GROUP_ID = 'com.afollestad'
     PUBLISH_ARTIFACT_ID = 'inquiry'
-    PUBLISH_VERSION = '2.0.2'
+    PUBLISH_VERSION = '3.0.0'
     TARGET_SDK = 24
     BUILD_TOOLS = '24.0.0'
-    GOOGLE_LIBS = '24.0.0'
+    GOOGLE_LIBS = '24.1.1'
 }
 
 android {

@@ -22,7 +22,7 @@ Add this to your module's `build.gradle` file (make sure the version matches the
 ```gradle
 dependencies {
     // ... other dependencies
-    compile 'com.afollestad:inquiry:2.0.2'
+    compile 'com.afollestad:inquiry:3.0.0'
 }
 ```
 
@@ -31,27 +31,29 @@ dependencies {
 # Table of Contents
 
 1. [Quick Setup](https://github.com/afollestad/inquiry#quick-setup)
-2. [Example Row](https://github.com/afollestad/inquiry#example-row)
-3. [References](https://github.com/afollestad/inquiry#references)
-4. [Querying Rows](https://github.com/afollestad/inquiry#querying-rows)
+2. [Instances](https://github.com/afollestad/inquiry#instances)
+3. [Row Objects](https://github.com/afollestad/inquiry#row-objects)
+4. [Table References](https://github.com/afollestad/inquiry#table-references)
+5. [Querying Rows](https://github.com/afollestad/inquiry#querying-rows)
     1. [Basics](https://github.com/afollestad/inquiry#basics)
     2. [Where](https://github.com/afollestad/inquiry#wheren)
     3. [Sorting and Limiting](https://github.com/afollestad/inquiry#sorting-and-limiting)
-5. [Inserting Rows](https://github.com/afollestad/inquiry#inserting-rows)
-6. [Updating Rows](https://github.com/afollestad/inquiry#updating-rows)
+6. [Inserting Rows](https://github.com/afollestad/inquiry#inserting-rows)
+7. [Updating Rows](https://github.com/afollestad/inquiry#updating-rows)
     1. [Basics](https://github.com/afollestad/inquiry#basics-1)
     2. [Updating Specific Columns](https://github.com/afollestad/inquiry#updating-specific-columns)
-7. [Deleting Rows](https://github.com/afollestad/inquiry#deleting-rows)
-8. [Dropping Tables](https://github.com/afollestad/inquiry#dropping-tables)
-9. [Extra: Accessing Content Providers](https://github.com/afollestad/inquiry#extra-accessing-content-providers)
-    1. [Initialization](https://github.com/afollestad/inquiry#initialization)
+8. [Deleting Rows](https://github.com/afollestad/inquiry#deleting-rows)
+9. [Dropping Tables](https://github.com/afollestad/inquiry#dropping-tables)
+10. [Extra: Accessing Content Providers](https://github.com/afollestad/inquiry#extra-accessing-content-providers)
+    1. [Setup](https://github.com/afollestad/inquiry#setup)
     2. [Basics](https://github.com/afollestad/inquiry#basics-2)
 
 ---
 
 # Quick Setup
 
-When your app starts, you need to initialize Inquiry. `init()` and `deinit()` can be used from anywhere, but a reliable place to do so is in an Activity:
+When your app starts, you need to initialize Inquiry. `init(Context, String, int)` and `destroy(Context)` 
+can be used from anywhere that has a `Context`, but a reliable place to do so is in an Activity:
 
 ```java
 public class MainActivity extends AppCompatActivity {
@@ -59,32 +61,54 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onResume() {
         super.onResume();
-        Inquiry.init(this, "myDatabase", 1);
+        
+        // Creates an instance specifically for MainActivity
+        new Inquiry.Builder(this, "my_new_database").build();
     }
 
     @Override
     public void onPause() {
         super.onPause();
-        Inquiry.deinit();
+
+        // Checking for isFinishing() makes sure the Activity is actually closing.
+        // onPause() can also be called when a Dialog opens, such as a permissions dialog.
+        if (isFinishing()) {
+            // Destroys only MainActivity's instance
+            Inquiry.destroy(this);
+        }
     }
 }
 ```
 
-`init()` takes a `Context` in the first parameter, and the name of the database that'll you be using
-in the second parameter. The third parameter is the database version, which could always be '1' if you want. 
-Incrementing the number will drop tables created with a lower number next time they are accessed.
+---
 
-Think of a database like a file that contains a set of tables (a table is basically
-a spreadsheet; it contains rows and columns).
+# Instances
 
-When your app is done with Inquiry, you *should* call `deinit()` to help clean up references and avoid memory leaks.
+The static Inquiry instance that you access from this library is not always the same instance. For
+thread safety and other reasons, Inquiry supports uses multiple instances.
 
 ---
 
-# Example Row
+In the small example in the section above, the use of the `Builder` class creates a new instance for
+`MainActivity`. It will access a local database called *"my_new_database"*.
+
+The first parameter passed into `Builder()` references `MainActivity`, which is an instance of `android.content.Context`.
+This is used to access resources, but it is also used to keep track of the newly created instance which is later destroyed in `onPause()`.
+
+If you wanted to keep track of instances with a custom string, you can:
+
+```java
+new Inquiry.Builder(this, "my_new_database")
+    .instanceName("my_custom_instance")
+    .build();
+```
+
+---
+
+# Row Objects
 
 In Inquiry, a row is just an object which contains a set of values that can be read from and written to
-a table in your database.
+a table in your database. In a spreadsheet, a row goes from left to right; each cell is a column in the row.
 
 ```java
 public class Person {
@@ -133,7 +157,7 @@ only be used with INTEGER columns (short, int, or long fields), however.
 
 ---
 
-# References (Coming Soon)
+# Table References
 
 In addition to the `@Column` annotation, Inquiry has a special annotation called `@Reference`. This 
 annotation is used to link a field to another table.
@@ -163,15 +187,14 @@ public class Person {
 }
 ```
 
-**During insertion**, Inquiry will insert the `spouse` Field into the table `spouses`. The value of 
+**During insertion**, Inquiry will insert the value of the `spouse` Field into the table `spouses`. The value of
 the `spouse` column in the current table will be set to the *_id* of the new row in the `spouses` table.
 
 **During querying**, Inquiry will see the `@Reference` annotation, and do an automatic lookup for you.
-The value of the `spouse` field is automatically pulled from the second table into the current table.
+The value of the `spouse` field is automatically pulled from the second table. It's similar to a JOIN in SQL.
 
 Basically, this allows you to have non-primitive column types that are blazing fast to insert or query. 
-No serialization is necessary. You can even have two rows which reference the same object (a single object 
-with the same `_id` value).
+No serialization is necessary. You can even have two row objects which reference the same object.
 
 ---
 
@@ -179,11 +202,12 @@ with the same `_id` value).
 
 #### Basics
 
-Querying retrieves rows, whether its every row in a table or rows that match a specific criteria.
+Querying a table retrieves rows, whether its every row in a table or rows that match a specific criteria.
 Here's how you would retrieve all rows from a table called *"people"*:
 
 ```java
-Person[] result = Inquiry.get()
+// NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
+Person[] result = Inquiry.get(this)
     .selectFrom("people", Person.class)
     .all();
 ```
@@ -191,7 +215,8 @@ Person[] result = Inquiry.get()
 If you only needed one row, using `one()` instead of `all()` is more efficient:
 
 ```java
-Person result = Inquiry.get()
+// NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
+Person result = Inquiry.get(this)
     .selectFrom("people", Person.class)
     .one();
 ```
@@ -201,7 +226,8 @@ Person result = Inquiry.get()
 You can also perform the query on a separate thread using a callback:
 
 ```java
-Inquiry.get()
+// NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
+Inquiry.get(this)
     .selectFrom("people", Person.class)
     .all(new GetCallback<Person>() {
         @Override
@@ -212,13 +238,15 @@ Inquiry.get()
 ```
 
 Inquiry will automatically fill in your `@Column` fields with matching columns in each row of the table.
+As mentioned in a previous section, `@Reference` fields are also automatically pulled from their reference table.
 
 #### Where
 
 If you wanted to find rows with specific values in their columns, you can use `where` selection:
 
 ```java
-Person[] result = Inquiry.get()
+// NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
+Person[] result = Inquiry.get(this)
     .selectFrom("people", Person.class)
     .where("name = ? AND age = ?", "Aidan", 20)
     .all();
@@ -245,7 +273,8 @@ Inquiry includes a convenience method called `atPosition()` which lets you perfo
 in your tables:
 
 ```java
-Person result = Inquiry.get()
+// NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
+Person result = Inquiry.get(this)
     .selectFrom("people", Person.class)
     .atPosition(24)
     .one();
@@ -261,7 +290,8 @@ This code would limit the maximum number of rows returned to 100. It would sort 
 in the "name" column, in descending (Z-A, or greater to smaller) order:
 
 ```java
-Person[] result = Inquiry.get()
+// NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
+Person[] result = Inquiry.get(this)
     .selectFrom("people", Person.class)
     .limit(100)
     .sort("name DESC")
@@ -285,7 +315,8 @@ Person one = new Person("Waverly", 18, 8.9f, false);
 Person two = new Person("Natalie", 42, 10f, false);
 Person three = new Person("Aidan", 20, 5.7f, true);
 
-Long[] insertedIds = Inquiry.get()
+// NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
+Long[] insertedIds = Inquiry.get(this)
         .insertInto("people", Person.class)
         .values(one, two, three)
         .run();
@@ -296,7 +327,8 @@ Inquiry will automatically pull your `@Column` fields out and insert them into t
 Like `all()`, `run()` has a callback variation that will run the operation in a separate thread:
 
 ```java
-Inquiry.get()
+// NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
+Inquiry.get(this)
     .insertInto("people", Person.class)
     .values(one, two, three)
     .run(new RunCallback() {
@@ -319,7 +351,8 @@ Updating is similar to insertion, however it results in changed rows rather than
 ```java
 Person two = new Person("Natalie", 42, 10f, false);
 
-Integer updatedCount = Inquiry.get()
+// NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
+Integer updatedCount = Inquiry.get(this)
     .update("people", Person.class)
     .values(two)
     .where("name = ?", "Aidan")
@@ -341,7 +374,8 @@ what columns you want to be changed using `onlyUpdate`:
 ```java
 Person two = new Person("Natalie", 42, 10f, false);
 
-Integer updatedCount = Inquiry.get()
+// NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
+Integer updatedCount = Inquiry.get(this)
     .update("people", Person.class)
     .values(two)
     .where("name = ?", "Aidan")
@@ -357,7 +391,8 @@ the `age` and `rank` columns of the updated rows. The other columns will be left
 Deletion is simple:
 
 ```java
-Integer deletedCount = Inquiry.get()
+// NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
+Integer deletedCount = Inquiry.get(this)
     .deleteFrom("people")
     .where("age = ?", 20)
     .run();
@@ -375,7 +410,8 @@ Like querying, `atPosition(int)` can be used in place of `where(String)` to dele
 Dropping a table means deleting it. It's pretty straight forward:
 
 ```java
-Inquiry.get()
+// NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
+Inquiry.get(this)
     .dropTable("people");
 ```
 
@@ -390,9 +426,9 @@ A common usage of content providers is Android's MediaStore. Most local media pl
 to get a list of audio and video files scanned by the system; the system logs all of their meta data
 so the title, duration, album art, etc. can be quickly accessed.
 
-#### Initialization
+#### Setup
 
-Inquiry initialization is still the same, but passing a database name is not required for content providers.
+Inquiry setup is still the same, but passing a database name is not required for content providers.
 
 ```java
 public class MainActivity extends AppCompatActivity {
@@ -400,13 +436,15 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onResume() {
         super.onResume();
-        Inquiry.init(this);
+        new Inquiry.Builder(this, null).build();
     }
 
     @Override
     public void onPause() {
         super.onPause();
-        Inquiry.deinit();
+        if (isFinishing()) {
+            Inquiry.destroy(this);
+        }
     }
 }
 ```
@@ -435,7 +473,7 @@ public class Photo {
 You can perform all the same operations, but you pass a `content://` URI instead of a table name:
 
 ```java
-Photo[] photos = Inquiry.get()
+Photo[] photos = Inquiry.get(this)
     .selectFrom(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, Photo.class)
     .all();
 ```

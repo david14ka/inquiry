@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 ext {
-    PUBLISH_VERSION = '2.0.2'
+    PUBLISH_VERSION = '3.0.0'
     TARGET_SDK = 24
     BUILD_TOOLS = '24.0.0'
-    GOOGLE_LIBS = '24.0.0'
+    GOOGLE_LIBS = '24.1.1'
 }
 
 android {
@@ -43,5 +43,5 @@ dependencies {
     compile "com.android.support:recyclerview-v7:$GOOGLE_LIBS"
 
     compile 'com.github.bumptech.glide:glide:3.7.0'
-    compile 'com.afollestad.material-dialogs:core:0.8.6.0'
+    compile 'com.afollestad.material-dialogs:core:0.8.6.2'
 }

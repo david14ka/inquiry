@@ -137,7 +137,7 @@ class ClassRowConverter {
         }
     }
 
-    private static void loadFieldIntoRow(Cursor cursor, Field field, Object row, int columnIndex, @DataType.TypeDef int columnType) throws Exception {
+    private static void loadFieldIntoRow(Inquiry forInstance, Cursor cursor, Field field, Object row, int columnIndex, @DataType.TypeDef int columnType) throws Exception {
         final Class<?> fieldType = field.getType();
         if (cursor.isNull(columnIndex)) {
             if (fieldType == short.class || fieldType == Short.class ||
@@ -159,11 +159,13 @@ class ClassRowConverter {
         final Reference refAnn = field.getAnnotation(Reference.class);
         if (refAnn != null) {
             final long id = cursor.getLong(columnIndex);
-            final Object val = Inquiry.get()
+            final Inquiry refInstance = Inquiry.copy(forInstance, "[@ref]:" + refAnn.tableName() + "//" + refAnn.columnName(), false);
+            final Object val = refInstance
                     .selectFrom(refAnn.tableName(), field.getType())
                     .where("_id = ?", id)
                     .one();
             field.set(row, val);
+            refInstance.destroyInstance();
             return;
         }
 
@@ -240,9 +242,11 @@ class ClassRowConverter {
             final Reference refAnn = fld.getAnnotation(Reference.class);
             if (refAnn != null)
                 name = selectColumnName(refAnn, fld);
-            final Column colAnn = fld.getAnnotation(Column.class);
-            if (colAnn != null)
-                name = selectColumnName(colAnn, fld);
+            if (name == null) {
+                final Column colAnn = fld.getAnnotation(Column.class);
+                if (colAnn != null)
+                    name = selectColumnName(colAnn, fld);
+            }
             if (name == null)
                 continue;
             cache.put(name, fld);
@@ -250,7 +254,7 @@ class ClassRowConverter {
         return cache;
     }
 
-    public static <T> T cursorToCls(Cursor cursor, Class<T> cls) {
+    public static <T> T cursorToCls(Inquiry forInstance, Cursor cursor, Class<T> cls) {
         final T row = Utils.newInstance(cls);
         final HashMap<String, Field> fieldCache = buildFieldCache(cls);
 
@@ -260,7 +264,7 @@ class ClassRowConverter {
             try {
                 final Field columnField = fieldCache.get(columnName);
                 columnField.setAccessible(true);
-                loadFieldIntoRow(cursor, columnField, row, columnIndex, columnType);
+                loadFieldIntoRow(forInstance, cursor, columnField, row, columnIndex, columnType);
             } catch (NoSuchFieldException e) {
                 throw new IllegalStateException(String.format("No field found in %s for column %s (of type %s)",
                         cls.getName(), columnName, DataType.name(columnType)));
@@ -345,11 +349,13 @@ class ClassRowConverter {
         return fields;
     }
 
-    public static ContentValues clsToVals(@NonNull Object row, @Nullable String[] projection, @Nullable List<Field> fields) {
+    public static ContentValues clsToVals(@NonNull Inquiry forInstance, @NonNull Object row, @Nullable String[] projection, @Nullable List<Field> fields, boolean updateMode) {
         try {
             ContentValues vals = new ContentValues();
             if (fields == null)
                 fields = getAllFields(row.getClass());
+            HashMap<String, Field> refIdFieldCache = null;
+
             int columnCount = 0;
             for (Field fld : fields) {
                 fld.setAccessible(true);
@@ -368,18 +374,44 @@ class ClassRowConverter {
                 if (refAnn != null) {
                     final Object fldVal = fld.get(row);
                     long id = -1;
-                    if (fldVal != null) {
-                        final Long[] ids = Inquiry.get()
+                    final Inquiry refInstance = Inquiry.copy(forInstance, "[@ref]:" + refAnn.tableName() + "//" + refAnn.columnName(), false);
+
+                    final Field idField;
+                    if (refIdFieldCache == null)
+                        refIdFieldCache = new HashMap<>();
+                    if (refIdFieldCache.containsKey(fld.getType().getName()))
+                        idField = refIdFieldCache.get(fld.getType().getName());
+                    else idField = getIdField(getAllFields(fld.getType()));
+                    if (idField == null)
+                        throw new IllegalStateException("Class " + fld.getType().getName() + " needs an _id column in order to be used as a @Reference.");
+
+                    if (updateMode) {
+                        final long colId = idField.getLong(fldVal);
+                        if (fldVal != null) {
+                            // Field is not null, update reference row
+                            refInstance.update(refAnn.tableName(), fld.getType())
+                                    .value(fldVal)
+                                    .where("_id = ?", colId)
+                                    .run();
+                        } else {
+                            // Field is null, remove reference row
+                            refInstance.deleteFrom(refAnn.tableName(), fld.getType())
+                                    .where("_id = ?", colId)
+                                    .run();
+                        }
+                    } else if (fldVal != null) {
+                        // Insert field value into the reference table, the current class field will hold a reference _id
+                        final Long[] ids = refInstance
                                 .insertInto(refAnn.tableName(), fld.getType())
                                 .value(fldVal)
                                 .run();
                         if (ids != null && ids.length > 0)
                             id = ids[0];
-                        final Field idField = getIdField(getAllFields(fld.getType()));
                         setIdField(fldVal, idField, id);
+                        vals.put(selectColumnName(refAnn, fld), id);
                     }
-                    // Insert reference row ID
-                    vals.put(selectColumnName(refAnn, fld), id);
+
+                    refInstance.destroyInstance();
                     continue;
                 }
 
@@ -423,8 +455,14 @@ class ClassRowConverter {
                             fldType.getName(), fld.getName()));
                 }
             }
+
+            if (refIdFieldCache != null) {
+                refIdFieldCache.clear();
+                refIdFieldCache = null;
+            }
             if (columnCount == 0)
                 throw new IllegalStateException("Class " + row.getClass().getName() + " has no column fields.");
+
             return vals;
         } catch (Throwable t) {
             throw new RuntimeException(t);

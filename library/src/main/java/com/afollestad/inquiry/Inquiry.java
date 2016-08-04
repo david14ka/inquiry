@@ -7,51 +7,141 @@ import android.os.Handler;
 import android.support.annotation.IntRange;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.util.Log;
+
+import java.util.HashMap;
 
 /**
  * @author Aidan Follestad (afollestad)
  */
 public final class Inquiry {
 
-    private static Inquiry mInquiry;
+    private static HashMap<String, Inquiry> mInstances;
+
+    private static String getInstanceName(@NonNull Context forContext) {
+        return forContext.getClass().getName();
+    }
+
+    private static void LOG(@NonNull String msg, @Nullable Object... args) {
+        if (args != null)
+            msg = String.format(msg, args);
+        Log.d("Inquiry", msg);
+    }
 
     protected Context mContext;
     protected Handler mHandler;
     @Nullable
     protected String mDatabaseName;
     protected int mDatabaseVersion = 1;
+    protected String mInstanceName;
 
-    private Inquiry() {
-        mHandler = new Handler();
-    }
-
-    @NonNull
-    public static Inquiry init(@NonNull Context context, @Nullable String databaseName,
-                               @IntRange(from = 1, to = Integer.MAX_VALUE) int databaseVersion) {
+    private Inquiry(@NonNull Context context) {
         //noinspection ConstantConditions
         if (context == null)
             throw new IllegalArgumentException("Context can't be null.");
-        if (mInquiry == null)
-            mInquiry = new Inquiry();
-        mInquiry.mContext = context;
-        mInquiry.mDatabaseName = databaseName;
-        mInquiry.mDatabaseVersion = databaseVersion;
-        return mInquiry;
+        mContext = context;
+        mInstanceName = getInstanceName(context);
+        mDatabaseVersion = 1;
+    }
+
+    public static class Builder {
+
+        private Inquiry newInstance;
+        private boolean used;
+
+        public Builder(@NonNull Context context, @Nullable String databaseName) {
+            newInstance = new Inquiry(context);
+            if (databaseName == null || databaseName.trim().isEmpty()) {
+                databaseName = "default_db";
+                LOG("Using default database name: %s", databaseName);
+            }
+            newInstance.mDatabaseName = databaseName;
+        }
+
+        @NonNull
+        public Builder instanceName(@Nullable String name) {
+            newInstance.mInstanceName = name;
+            return this;
+        }
+
+        @NonNull
+        public Builder databaseVersion(@IntRange(from = 1, to = Integer.MAX_VALUE) int version) {
+            newInstance.mDatabaseVersion = version;
+            return this;
+        }
+
+        @NonNull
+        public Builder handler(@Nullable Handler handler) {
+            newInstance.mHandler = handler;
+            return this;
+        }
+
+        @NonNull
+        public Inquiry build() {
+            return build(true);
+        }
+
+        @NonNull
+        public Inquiry build(boolean persist) {
+            final String name = newInstance.mInstanceName;
+            if (used)
+                throw new IllegalStateException("This Builder was already used to build instance " + name);
+            this.used = true;
+
+            if (persist) {
+                if (mInstances == null)
+                    mInstances = new HashMap<>();
+                else if (mInstances.containsKey(name))
+                    mInstances.get(name).destroyInstance();
+                mInstances.put(name, newInstance);
+            }
+
+            if (newInstance.mHandler == null)
+                newInstance.mHandler = new Handler();
+            LOG("Built instance %s", name);
+
+            return newInstance;
+        }
     }
 
     @NonNull
-    public static Inquiry init(@NonNull Context context) {
-        return init(context, null, 1);
+    public static Inquiry copy(@NonNull Inquiry instance, @NonNull String newInstanceName, boolean persist) {
+        return new Inquiry.Builder(instance.mContext, instance.mDatabaseName)
+                .handler(instance.mHandler)
+                .databaseVersion(instance.mDatabaseVersion)
+                .instanceName(newInstanceName)
+                .build();
     }
 
-    public static void deinit() {
-        if (mInquiry != null) {
-            mInquiry.mContext = null;
-            mInquiry.mHandler = null;
-            mInquiry.mDatabaseName = null;
-            mInquiry.mDatabaseVersion = 0;
-            mInquiry = null;
+    @NonNull
+    public static Inquiry copy(@NonNull Inquiry instance, @NonNull Context newContext, boolean persist) {
+        return copy(instance, getInstanceName(newContext), persist);
+    }
+
+    public void destroyInstance() {
+        if (mInstanceName != null) {
+            mInstances.remove(mInstanceName);
+            mInstanceName = null;
         }
+        mContext = null;
+        mHandler = null;
+        mDatabaseName = null;
+        mDatabaseVersion = 0;
+    }
+
+    public static void destroy(Context context) {
+        destroy(getInstanceName(context));
+    }
+
+    public static void destroy(String instanceName) {
+        if (!mInstances.containsKey(instanceName)) {
+            LOG("No instances found to destroy by name %s.", instanceName);
+            return;
+        }
+
+        final Inquiry instance = mInstances.get(instanceName);
+        instance.destroyInstance();
+        mInstances.remove(instanceName);
     }
 
     public void dropTable(@NonNull String tableName) {
@@ -61,10 +151,15 @@ public final class Inquiry {
     }
 
     @NonNull
-    public static Inquiry get() {
-        if (mInquiry == null)
-            throw new IllegalStateException("Inquiry not initialized, or has been garbage collected.");
-        return mInquiry;
+    public static Inquiry get(@NonNull Context context) {
+        return get(getInstanceName(context));
+    }
+
+    @NonNull
+    public static Inquiry get(@NonNull String instanceName) {
+        if (!mInstances.containsKey(instanceName))
+            throw new IllegalStateException(String.format("No persisted instance found for %s, or it's been garbage collected.", instanceName));
+        return mInstances.get(instanceName);
     }
 
     @NonNull

@@ -156,7 +156,7 @@ public final class Query<RowType, RunReturn> {
                     results = (RowType[]) Array.newInstance(mRowClass, cursor.getCount());
                     int index = 0;
                     while (cursor.moveToNext()) {
-                        results[index] = ClassRowConverter.cursorToCls(cursor, mRowClass);
+                        results[index] = ClassRowConverter.cursorToCls(mInquiry, cursor, mRowClass);
                         index++;
                     }
                 }
@@ -219,13 +219,13 @@ public final class Query<RowType, RunReturn> {
                 if (mDatabase != null) {
                     for (int i = 0; i < mValues.length; i++) {
                         final RowType row = mValues[i];
-                        insertedIds[i] = mDatabase.insert(ClassRowConverter.clsToVals(row, null, clsFields));
+                        insertedIds[i] = mDatabase.insert(ClassRowConverter.clsToVals(mInquiry, row, null, clsFields, false));
                         ClassRowConverter.setIdField(row, idField, insertedIds[i]);
                     }
                 } else if (mContentUri != null) {
                     for (int i = 0; i < mValues.length; i++) {
                         final RowType row = mValues[i];
-                        final Uri uri = cr.insert(mContentUri, ClassRowConverter.clsToVals(row, null, clsFields));
+                        final Uri uri = cr.insert(mContentUri, ClassRowConverter.clsToVals(mInquiry, row, null, clsFields, false));
                         if (uri == null) return (RunReturn) (Long) (-1L);
                         insertedIds[i] = Long.parseLong(uri.getLastPathSegment());
                         ClassRowConverter.setIdField(row, idField, insertedIds[i]);
@@ -235,7 +235,7 @@ public final class Query<RowType, RunReturn> {
                 close();
                 return (RunReturn) insertedIds;
             case UPDATE: {
-                final ContentValues values = ClassRowConverter.clsToVals(mValues[mValues.length - 1], mOnlyUpdate, clsFields);
+                final ContentValues values = ClassRowConverter.clsToVals(mInquiry, mValues[mValues.length - 1], mOnlyUpdate, clsFields, true);
                 if (mDatabase != null) {
                     RunReturn value = (RunReturn) (Integer) mDatabase.update(values, mSelection, mSelectionArgs);
                     close();
