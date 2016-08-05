@@ -1,9 +1,11 @@
 package com.afollestad.inquiry;
 
+import android.annotation.SuppressLint;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.net.Uri;
+import android.support.annotation.CheckResult;
 import android.support.annotation.IntRange;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -19,6 +21,7 @@ import java.util.Locale;
 /**
  * @author Aidan Follestad (afollestad)
  */
+@SuppressLint("DefaultLocale")
 public final class Query<RowType, RunReturn> {
 
     protected final static int SELECT = 1;
@@ -60,6 +63,8 @@ public final class Query<RowType, RunReturn> {
     private int mLimit;
     private RowType[] mValues;
 
+    @NonNull
+    @CheckResult
     public Query<RowType, RunReturn> atPosition(@IntRange(from = 0, to = Integer.MAX_VALUE) int position) {
         Cursor cursor;
         if (mContentUri != null) {
@@ -92,6 +97,8 @@ public final class Query<RowType, RunReturn> {
         return this;
     }
 
+    @NonNull
+    @CheckResult
     public Query<RowType, RunReturn> where(@NonNull String selection, @Nullable Object... selectionArgs) {
         mSelection = selection;
         if (selectionArgs != null) {
@@ -104,16 +111,22 @@ public final class Query<RowType, RunReturn> {
         return this;
     }
 
+    @NonNull
+    @CheckResult
     public Query<RowType, RunReturn> sort(@NonNull String sortOrder) {
         mSortOrder = sortOrder;
         return this;
     }
 
+    @NonNull
+    @CheckResult
     public Query<RowType, RunReturn> limit(int limit) {
         mLimit = limit;
         return this;
     }
 
+    @NonNull
+    @CheckResult
     @SuppressWarnings("unchecked")
     protected final Query<RowType, RunReturn> value(@NonNull Object value) {
         mValues = (RowType[]) Array.newInstance(mRowClass, 1);
@@ -121,12 +134,16 @@ public final class Query<RowType, RunReturn> {
         return this;
     }
 
+    @NonNull
+    @CheckResult
     @SafeVarargs
     public final Query<RowType, RunReturn> values(@NonNull RowType... values) {
         mValues = values;
         return this;
     }
 
+    @NonNull
+    @CheckResult
     public Query<RowType, RunReturn> onlyUpdate(@NonNull String... values) {
         mOnlyUpdate = values;
         return this;
@@ -134,6 +151,7 @@ public final class Query<RowType, RunReturn> {
 
     @SuppressWarnings("unchecked")
     @Nullable
+    @CheckResult
     private RowType[] getInternal(int limit) {
         if (mRowClass == null)
             return null;
@@ -170,6 +188,7 @@ public final class Query<RowType, RunReturn> {
     }
 
     @Nullable
+    @CheckResult
     public RowType one() {
         if (mRowClass == null) return null;
         RowType[] results = getInternal(1);
@@ -179,6 +198,7 @@ public final class Query<RowType, RunReturn> {
     }
 
     @Nullable
+    @CheckResult
     public RowType[] all() {
         return getInternal(mLimit > 0 ? mLimit : -1);
     }
@@ -199,6 +219,7 @@ public final class Query<RowType, RunReturn> {
         }).start();
     }
 
+    @CheckResult
     @SuppressWarnings("unchecked")
     public RunReturn run() {
         if (mQueryType != DELETE && (mValues == null || mValues.length == 0))

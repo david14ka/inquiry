@@ -4,6 +4,7 @@ import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
 import android.os.Handler;
+import android.support.annotation.CheckResult;
 import android.support.annotation.IntRange;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -49,6 +50,7 @@ public final class Inquiry {
         private Inquiry newInstance;
         private boolean used;
 
+        @Deprecated
         public Builder(@NonNull Context context, @Nullable String databaseName) {
             newInstance = new Inquiry(context);
             if (databaseName == null || databaseName.trim().isEmpty()) {
@@ -104,6 +106,11 @@ public final class Inquiry {
         }
     }
 
+    public static Inquiry.Builder newInstance(@NonNull Context context, @Nullable String databaseName) {
+        return new Inquiry.Builder(context, databaseName);
+    }
+
+    @CheckResult
     @NonNull
     public static Inquiry copy(@NonNull Inquiry instance, @NonNull String newInstanceName, boolean persist) {
         return new Inquiry.Builder(instance.mContext, instance.mDatabaseName)
@@ -113,6 +120,7 @@ public final class Inquiry {
                 .build();
     }
 
+    @CheckResult
     @NonNull
     public static Inquiry copy(@NonNull Inquiry instance, @NonNull Context newContext, boolean persist) {
         return copy(instance, getInstanceName(newContext), persist);
@@ -150,11 +158,13 @@ public final class Inquiry {
         db.close();
     }
 
+    @CheckResult
     @NonNull
     public static Inquiry get(@NonNull Context context) {
         return get(getInstanceName(context));
     }
 
+    @CheckResult
     @NonNull
     public static Inquiry get(@NonNull String instanceName) {
         if (!mInstances.containsKey(instanceName))
@@ -162,41 +172,49 @@ public final class Inquiry {
         return mInstances.get(instanceName);
     }
 
+    @CheckResult
     @NonNull
     public <RowType> Query<RowType, Integer> selectFrom(@NonNull String table, @NonNull Class<RowType> rowType) {
         return new Query<>(this, table, Query.SELECT, rowType, mDatabaseVersion);
     }
 
+    @CheckResult
     @NonNull
     public <RowType> Query<RowType, Integer> selectFrom(@NonNull Uri contentProviderUri, @NonNull Class<RowType> rowType) {
         return new Query<>(this, contentProviderUri, Query.SELECT, rowType);
     }
 
+    @CheckResult
     @NonNull
     public <RowType> Query<RowType, Long[]> insertInto(@NonNull String table, @NonNull Class<RowType> rowType) {
         return new Query<>(this, table, Query.INSERT, rowType, mDatabaseVersion);
     }
 
+    @CheckResult
     @NonNull
     public <RowType> Query<RowType, Long[]> insertInto(@NonNull Uri contentProviderUri, @NonNull Class<RowType> rowType) {
         return new Query<>(this, contentProviderUri, Query.INSERT, rowType);
     }
 
+    @CheckResult
     @NonNull
     public <RowType> Query<RowType, Integer> update(@NonNull String table, @NonNull Class<RowType> rowType) {
         return new Query<>(this, table, Query.UPDATE, rowType, mDatabaseVersion);
     }
 
+    @CheckResult
     @NonNull
     public <RowType> Query<RowType, Integer> update(@NonNull Uri contentProviderUri, @NonNull Class<RowType> rowType) {
         return new Query<>(this, contentProviderUri, Query.UPDATE, rowType);
     }
 
+    @CheckResult
     @NonNull
     public <RowType> Query<RowType, Integer> deleteFrom(@NonNull String table, @NonNull Class<RowType> rowType) {
         return new Query<>(this, table, Query.DELETE, rowType, mDatabaseVersion);
     }
 
+    @CheckResult
     @NonNull
     public <RowType> Query<RowType, Integer> deleteFrom(@NonNull Uri contentProviderUri, @NonNull Class<RowType> rowType) {
         return new Query<>(this, contentProviderUri, Query.DELETE, rowType);

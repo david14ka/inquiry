@@ -22,7 +22,7 @@ Add this to your module's `build.gradle` file (make sure the version matches the
 ```gradle
 dependencies {
     // ... other dependencies
-    compile 'com.afollestad:inquiry:3.0.0'
+    compile 'com.afollestad:inquiry:3.0.1'
 }
 ```
 
@@ -63,7 +63,7 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         
         // Creates an instance specifically for MainActivity
-        new Inquiry.Builder(this, "my_new_database").build();
+        Inquiry.newInstance(this, "my_new_database").build();
     }
 
     @Override
@@ -89,16 +89,16 @@ thread safety and other reasons, Inquiry supports uses multiple instances.
 
 ---
 
-In the small example in the section above, the use of the `Builder` class creates a new instance for
+In the small example in the section above, the use of the `newInstance` Builder creates a new instance for
 `MainActivity`. It will access a local database called *"my_new_database"*.
 
-The first parameter passed into `Builder()` references `MainActivity`, which is an instance of `android.content.Context`.
+The first parameter passed into `newInstance()` references `MainActivity`, which is an instance of `android.content.Context`.
 This is used to access resources, but it is also used to keep track of the newly created instance which is later destroyed in `onPause()`.
 
 If you wanted to keep track of instances with a custom string, you can:
 
 ```java
-new Inquiry.Builder(this, "my_new_database")
+Inquiry.newInstance(this, "my_new_database")
     .instanceName("my_custom_instance")
     .build();
 ```
@@ -436,7 +436,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onResume() {
         super.onResume();
-        new Inquiry.Builder(this, null).build();
+        Inquiry.newInstance(this, null).build();
     }
 
     @Override

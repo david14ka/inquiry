@@ -27,8 +27,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        new Inquiry.Builder(this, "test_db")
-                .build();
+        Inquiry.newInstance(this, "test_db").build();
         setContentView(R.layout.activity_main);
 
         RecyclerView list = (RecyclerView) findViewById(R.id.list);

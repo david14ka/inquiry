@@ -1,5 +1,6 @@
 package com.afollestad.inquiry;
 
+import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
@@ -13,6 +14,7 @@ import java.lang.reflect.Constructor;
 class Utils {
 
     @SuppressWarnings("unchecked")
+    @CheckResult
     public static <T> T newInstance(@NonNull Class<T> cls) {
         final Constructor ctor = getDefaultConstructor(cls);
         try {
@@ -23,6 +25,7 @@ class Utils {
         }
     }
 
+    @CheckResult
     public static Constructor<?> getDefaultConstructor(@NonNull Class<?> cls) {
         final Constructor[] ctors = cls.getDeclaredConstructors();
         Constructor ctor = null;
