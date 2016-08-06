@@ -6,6 +6,7 @@ import android.content.ContentValues;
 import android.database.Cursor;
 import android.net.Uri;
 import android.support.annotation.CheckResult;
+import android.support.annotation.IntDef;
 import android.support.annotation.IntRange;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -13,6 +14,8 @@ import android.support.annotation.Nullable;
 import com.afollestad.inquiry.callbacks.GetCallback;
 import com.afollestad.inquiry.callbacks.RunCallback;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.util.List;
@@ -24,6 +27,11 @@ import java.util.Locale;
 @SuppressLint("DefaultLocale")
 public final class Query<RowType, RunReturn> {
 
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef({SELECT, INSERT, UPDATE, DELETE})
+    public @interface QueryType {
+    }
+
     protected final static int SELECT = 1;
     protected final static int INSERT = 2;
     protected final static int UPDATE = 3;
@@ -31,13 +39,21 @@ public final class Query<RowType, RunReturn> {
 
     private final Inquiry mInquiry;
     private Uri mContentUri;
-    private final int mQueryType;
     @Nullable
     private final Class<RowType> mRowClass;
     @Nullable
     private SQLiteHelper mDatabase;
 
-    protected Query(@NonNull Inquiry inquiry, @NonNull Uri contentUri, int type, @Nullable Class<RowType> mClass) {
+    @QueryType
+    private final int mQueryType;
+    private String[] mProjection;
+    private String mWhere;
+    private String[] mWhereArgs;
+    private String mSortOrder;
+    private int mLimit;
+    private RowType[] mValues;
+
+    protected Query(@NonNull Inquiry inquiry, @NonNull Uri contentUri, @QueryType int type, @Nullable Class<RowType> mClass) {
         mInquiry = inquiry;
         mContentUri = contentUri;
         if (mContentUri.getScheme() == null || !mContentUri.getScheme().equals("content"))
@@ -46,7 +62,7 @@ public final class Query<RowType, RunReturn> {
         mRowClass = mClass;
     }
 
-    protected Query(@NonNull Inquiry inquiry, @NonNull String tableName, int type, @Nullable Class<RowType> mClass, int databaseVersion) {
+    protected Query(@NonNull Inquiry inquiry, @NonNull String tableName, @QueryType int type, @Nullable Class<RowType> mClass, int databaseVersion) {
         mInquiry = inquiry;
         mQueryType = type;
         mRowClass = mClass;
@@ -56,22 +72,15 @@ public final class Query<RowType, RunReturn> {
                 tableName, ClassRowConverter.getClassSchema(mClass), databaseVersion);
     }
 
-    private String[] mOnlyUpdate;
-    private String mSelection;
-    private String[] mSelectionArgs;
-    private String mSortOrder;
-    private int mLimit;
-    private RowType[] mValues;
-
     @NonNull
     @CheckResult
     public Query<RowType, RunReturn> atPosition(@IntRange(from = 0, to = Integer.MAX_VALUE) int position) {
         Cursor cursor;
         if (mContentUri != null) {
-            cursor = mInquiry.mContext.getContentResolver().query(mContentUri, null, mSelection, mSelectionArgs, null);
+            cursor = mInquiry.mContext.getContentResolver().query(mContentUri, null, mWhere, mWhereArgs, null);
         } else {
             if (mDatabase == null) throw new IllegalStateException("Database helper was null.");
-            cursor = mDatabase.query(null, mSelection, mSelectionArgs, null);
+            cursor = mDatabase.query(null, mWhere, mWhereArgs, null);
         }
         if (cursor != null) {
             if (position < 0 || position >= cursor.getCount()) {
@@ -90,8 +99,8 @@ public final class Query<RowType, RunReturn> {
                 throw new IllegalStateException("Didn't find a column named _id in this Cursor.");
             }
             final int idValue = cursor.getInt(idIndex);
-            mSelection = "_id = ?";
-            mSelectionArgs = new String[]{Integer.toString(idValue)};
+            mWhere = "_id = ?";
+            mWhereArgs = new String[]{Integer.toString(idValue)};
             cursor.close();
         }
         return this;
@@ -100,14 +109,29 @@ public final class Query<RowType, RunReturn> {
     @NonNull
     @CheckResult
     public Query<RowType, RunReturn> where(@NonNull String selection, @Nullable Object... selectionArgs) {
-        mSelection = selection;
+        final int argCount = selectionArgs != null ? selectionArgs.length : 0;
+        if (Utils.countOccurrences(selection, '?') != argCount)
+            throw new IllegalArgumentException("There must be the same amount of selectionArgs as there is '?' characters in your selection.");
+        mWhere = selection;
         if (selectionArgs != null) {
-            mSelectionArgs = new String[selectionArgs.length];
+            mWhereArgs = new String[selectionArgs.length];
             for (int i = 0; i < selectionArgs.length; i++)
-                mSelectionArgs[i] = (selectionArgs[i] + "");
+                mWhereArgs[i] = (selectionArgs[i] + "");
         } else {
-            mSelectionArgs = null;
+            mWhereArgs = null;
         }
+        return this;
+    }
+
+    @NonNull
+    @CheckResult
+    public Query<RowType, RunReturn> whereIn(@NonNull String columnName, @Nullable Object... selectionArgs) {
+        if (selectionArgs == null || selectionArgs.length == 0)
+            throw new IllegalArgumentException("You must specify non-null, non-empty selection args.");
+        mWhere = String.format(Locale.getDefault(), "%s IN %s", columnName, Utils.createArgsString(selectionArgs.length));
+        mWhereArgs = new String[selectionArgs.length];
+        for (int i = 0; i < selectionArgs.length; i++)
+            mWhereArgs[i] = (selectionArgs[i] + "");
         return this;
     }
 
@@ -144,8 +168,19 @@ public final class Query<RowType, RunReturn> {
 
     @NonNull
     @CheckResult
+    public Query<RowType, RunReturn> projection(@NonNull String... values) {
+        mProjection = values;
+        return this;
+    }
+
+    /**
+     * @deprecated Use {@link #projection(String...)} instead.
+     */
+    @Deprecated
+    @NonNull
+    @CheckResult
     public Query<RowType, RunReturn> onlyUpdate(@NonNull String... values) {
-        mOnlyUpdate = values;
+        mProjection = values;
         return this;
     }
 
@@ -157,16 +192,17 @@ public final class Query<RowType, RunReturn> {
             return null;
         else if (mInquiry.mContext == null)
             return null;
-        final String[] projection = ClassRowConverter.generateProjection(mRowClass);
+        if (mProjection == null)
+            mProjection = ClassRowConverter.generateProjection(mRowClass);
         if (mQueryType == SELECT) {
             String sort = mSortOrder;
             if (limit > -1) sort += String.format(Locale.getDefault(), " LIMIT %d", limit);
             Cursor cursor;
             if (mContentUri != null) {
-                cursor = mInquiry.mContext.getContentResolver().query(mContentUri, projection, mSelection, mSelectionArgs, sort);
+                cursor = mInquiry.mContext.getContentResolver().query(mContentUri, mProjection, mWhere, mWhereArgs, sort);
             } else {
                 if (mDatabase == null) throw new IllegalStateException("Database helper was null.");
-                cursor = mDatabase.query(projection, mSelection, mSelectionArgs, sort);
+                cursor = mDatabase.query(mProjection, mWhere, mWhereArgs, sort);
             }
             if (cursor != null) {
                 RowType[] results = null;
@@ -256,23 +292,23 @@ public final class Query<RowType, RunReturn> {
                 close();
                 return (RunReturn) insertedIds;
             case UPDATE: {
-                final ContentValues values = ClassRowConverter.clsToVals(mInquiry, mValues[mValues.length - 1], mOnlyUpdate, clsFields, true);
+                final ContentValues values = ClassRowConverter.clsToVals(mInquiry, mValues[mValues.length - 1], mProjection, clsFields, true);
                 if (mDatabase != null) {
-                    RunReturn value = (RunReturn) (Integer) mDatabase.update(values, mSelection, mSelectionArgs);
+                    RunReturn value = (RunReturn) (Integer) mDatabase.update(values, mWhere, mWhereArgs);
                     close();
                     return value;
                 } else if (mContentUri != null)
-                    return (RunReturn) (Integer) cr.update(mContentUri, values, mSelection, mSelectionArgs);
+                    return (RunReturn) (Integer) cr.update(mContentUri, values, mWhere, mWhereArgs);
                 else
                     throw new IllegalStateException("Database helper was null.");
             }
             case DELETE: {
                 if (mDatabase != null) {
-                    RunReturn value = (RunReturn) (Integer) mDatabase.delete(mSelection, mSelectionArgs);
+                    RunReturn value = (RunReturn) (Integer) mDatabase.delete(mWhere, mWhereArgs);
                     close();
                     return value;
                 } else if (mContentUri != null)
-                    return (RunReturn) (Integer) cr.delete(mContentUri, mSelection, mSelectionArgs);
+                    return (RunReturn) (Integer) cr.delete(mContentUri, mWhere, mWhereArgs);
                 else
                     throw new IllegalStateException("Database helper was null.");
             }

@@ -8,7 +8,7 @@ Read and write class objects from tables in a database. Let Inquiry handle the h
 
 # Gradle Dependency
 
-[ ![jCenter](https://api.bintray.com/packages/drummer-aidan/maven/inquiry/images/download.svg) ](https://bintray.com/drummer-aidan/maven/inquiry/_latestVersion)
+[![jCenter](https://api.bintray.com/packages/drummer-aidan/maven/inquiry/images/download.svg)](https://bintray.com/drummer-aidan/maven/inquiry/_latestVersion)
 [![Build Status](https://travis-ci.org/afollestad/inquiry.svg)](https://travis-ci.org/afollestad/inquiry)
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg?style=flat-square)](https://www.apache.org/licenses/LICENSE-2.0.html)
 
@@ -22,7 +22,7 @@ Add this to your module's `build.gradle` file (make sure the version matches the
 ```gradle
 dependencies {
     // ... other dependencies
-    compile 'com.afollestad:inquiry:3.0.1'
+    compile 'com.afollestad:inquiry:3.1.0'
 }
 ```
 
@@ -36,12 +36,14 @@ dependencies {
 4. [Table References](https://github.com/afollestad/inquiry#table-references)
 5. [Querying Rows](https://github.com/afollestad/inquiry#querying-rows)
     1. [Basics](https://github.com/afollestad/inquiry#basics)
-    2. [Where](https://github.com/afollestad/inquiry#wheren)
-    3. [Sorting and Limiting](https://github.com/afollestad/inquiry#sorting-and-limiting)
+    2. [Where](https://github.com/afollestad/inquiry#where)
+    2. [Where In](https://github.com/afollestad/inquiry#where-in)
+    3. [Projection](https://github.com/afollestad/inquiry#projection)
+    4. [Sorting and Limiting](https://github.com/afollestad/inquiry#sorting-and-limiting)
 6. [Inserting Rows](https://github.com/afollestad/inquiry#inserting-rows)
 7. [Updating Rows](https://github.com/afollestad/inquiry#updating-rows)
     1. [Basics](https://github.com/afollestad/inquiry#basics-1)
-    2. [Updating Specific Columns](https://github.com/afollestad/inquiry#updating-specific-columns)
+    2. [Projection](https://github.com/afollestad/inquiry#projection-1)
 8. [Deleting Rows](https://github.com/afollestad/inquiry#deleting-rows)
 9. [Dropping Tables](https://github.com/afollestad/inquiry#dropping-tables)
 10. [Extra: Accessing Content Providers](https://github.com/afollestad/inquiry#extra-accessing-content-providers)
@@ -200,7 +202,7 @@ No serialization is necessary. You can even have two row objects which reference
 
 # Querying Rows
 
-#### Basics
+### Basics
 
 Querying a table retrieves rows, whether its every row in a table or rows that match a specific criteria.
 Here's how you would retrieve all rows from a table called *"people"*:
@@ -240,7 +242,7 @@ Inquiry.get(this)
 Inquiry will automatically fill in your `@Column` fields with matching columns in each row of the table.
 As mentioned in a previous section, `@Reference` fields are also automatically pulled from their reference table.
 
-#### Where
+### Where
 
 If you wanted to find rows with specific values in their columns, you can use `where` selection:
 
@@ -248,7 +250,7 @@ If you wanted to find rows with specific values in their columns, you can use `w
 // NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
 Person[] result = Inquiry.get(this)
     .selectFrom("people", Person.class)
-    .where("name = ? AND age = ?", "Aidan", 21)
+    .where("name = ? AND age > ?", "Aidan", 21)
     .all();
 ```
 
@@ -261,7 +263,7 @@ vararg (or array) parameter.
 If you wanted, you could skip using the question marks and only use one parameter:
 
 ```java
-.where("name = 'Aidan' AND age = 21");
+.where("name = 'Aidan' AND age > 21");
 ```
 
 *However*, using the question marks and filler parameters can be easier to read if you're filling them in
@@ -282,9 +284,50 @@ Person result = Inquiry.get(this)
 
 Behind the scenes, it's using `where(String)` to select the row. `atPosition()` moves to a row position 
 and retrieves the row's `_id` column. So, tables need to have an `_id` column (which is unique for every row) 
-for this method to work.
+for this method to work. `atPosition(int)` can even be used when updating or deleting, not just for selection.
 
-#### Sorting and Limiting
+---
+
+### Where In
+
+Here's basic usage of where-in:
+
+```java
+// NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
+Person[] result = Inquiry.get(this)
+    .selectFrom("people", Person.class)
+    .whereIn("age", 19, 21)
+    .all();
+```
+
+The query above will retrieve any rows where the age is equal to `19` *or* `21`. You can pass an array
+in place of `19, 21` too. **Note** that `whereIn` can be used with updating and deletion too.
+
+---
+
+### Projection
+
+Projection allows you to only retrieve specific columns. Take this example, using the `Person` class
+made in a section above:
+
+```java
+// NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
+Person[] result = Inquiry.get(this)
+    .selectFrom("people", Person.class)
+    .projection("age", "rank")
+    .all();
+```
+
+This would retrieve all rows in the `people` table. Each row would only have the `age` and `rank` fields
+populated; all other fields would have their default values (e.g. `null` or `0`).
+
+One specific situation where projection is useful is if you were migrating a table to a new table that has more columns.
+If you try to select columns that don't exist in a table, you'd get an error; for migration, you'd have to select only
+the columns that exist in the source table. *Projection also makes queries fast and use less memory.*
+
+---
+
+### Sorting and Limiting
 
 This code would limit the maximum number of rows returned to 100. It would sort the results by values
 in the "name" column, in descending (Z-A, or greater to smaller) order:
@@ -344,7 +387,7 @@ automatically be updated to a newly inserted row ID.
 
 # Updating Rows
 
-#### Basics
+### Basics
 
 Updating is similar to insertion, however it results in changed rows rather than new rows:
 
@@ -366,10 +409,10 @@ object called `two`. If you didn't specify `where()` args, every row in the tabl
 
 Like querying, `atPosition(int)` can be used in place of `where(String)` to update a specific row.
 
-#### Updating Specific Columns
+### Projection
 
 Sometimes, you don't want to change every column in a row when you update them. You can choose specifically
-what columns you want to be changed using `onlyUpdate`:
+what columns you want to be changed using `projection`:
 
 ```java
 Person two = new Person("Natalie", 42, 10f, false);
@@ -379,7 +422,7 @@ Integer updatedCount = Inquiry.get(this)
     .update("people", Person.class)
     .values(two)
     .where("name = ?", "Aidan")
-    .onlyUpdate("age", "rank")
+    .projection("age", "rank")
     .run();
 ```
 
@@ -426,7 +469,7 @@ A common usage of content providers is Android's MediaStore. Most local media pl
 to get a list of audio and video files scanned by the system; the system logs all of their meta data
 so the title, duration, album art, etc. can be quickly accessed.
 
-#### Setup
+### Setup
 
 Inquiry setup is still the same, but passing a database name is not required for content providers.
 
@@ -449,7 +492,7 @@ public class MainActivity extends AppCompatActivity {
 }
 ```
 
-#### Basics
+### Basics
 
 This small example will read artists (for songs) on your phone. Here's the row class:
 

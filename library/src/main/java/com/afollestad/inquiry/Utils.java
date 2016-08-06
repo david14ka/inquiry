@@ -1,6 +1,7 @@
 package com.afollestad.inquiry;
 
 import android.support.annotation.CheckResult;
+import android.support.annotation.IntRange;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
@@ -47,5 +48,26 @@ class Utils {
             } catch (IOException ignored) {
             }
         }
+    }
+
+    @IntRange(from = 0, to = Integer.MAX_VALUE)
+    @CheckResult
+    public static int countOccurrences(String haystack, char needle) {
+        int count = 0;
+        for (int i = 0; i < haystack.length(); i++) {
+            if (haystack.charAt(i) == needle) count++;
+        }
+        return count;
+    }
+
+    @NonNull
+    @CheckResult
+    public static String createArgsString(int argsCount) {
+        StringBuilder sb = new StringBuilder(argsCount * 3 - 1);
+        sb.append("(?");
+        for (int i = 1; i < argsCount; i++)
+            sb.append(", ?");
+        sb.append(')');
+        return sb.toString();
     }
 }
