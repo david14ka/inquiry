@@ -22,7 +22,7 @@ Add this to your module's `build.gradle` file (make sure the version matches the
 ```gradle
 dependencies {
     // ... other dependencies
-    compile 'com.afollestad:inquiry:3.1.0'
+    compile 'com.afollestad:inquiry:3.2.0'
 }
 ```
 
@@ -38,8 +38,9 @@ dependencies {
     1. [Basics](https://github.com/afollestad/inquiry#basics)
     2. [Where](https://github.com/afollestad/inquiry#where)
     2. [Where In](https://github.com/afollestad/inquiry#where-in)
-    3. [Projection](https://github.com/afollestad/inquiry#projection)
-    4. [Sorting and Limiting](https://github.com/afollestad/inquiry#sorting-and-limiting)
+    3. [Combining Where Statements](https://github.com/afollestad/inquiry#combining-where-statements)
+    4. [Projection](https://github.com/afollestad/inquiry#projection)
+    5. [Sorting and Limiting](https://github.com/afollestad/inquiry#sorting-and-limiting)
 6. [Inserting Rows](https://github.com/afollestad/inquiry#inserting-rows)
 7. [Updating Rows](https://github.com/afollestad/inquiry#updating-rows)
     1. [Basics](https://github.com/afollestad/inquiry#basics-1)
@@ -305,6 +306,31 @@ in place of `19, 21` too. **Note** that `whereIn` can be used with updating and 
 
 ---
 
+### Combining Where Statements
+
+You can combine multiple where and where-in statements together:
+
+```java
+// NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
+Person[] result = Inquiry.get(this)
+    .selectFrom("people", Person.class)
+    .where("age > 8")
+    .where("age < 20")
+    .orWhereIn("name", "Aidan", "Waverly")
+    .all();
+```
+
+The above query translates to this where statement:
+
+```bash
+SELECT * FROM people WHERE age > 8 AND age < 20 OR name IN ('Aidan', 'Waverly')
+```
+
+It will retrieve all people in between ages 8 and 20, *or* anyone with the name Aidan or Waverly.
+`where()` and `whereIn()` both have variations that begin with `or`.
+
+---
+
 ### Projection
 
 Projection allows you to only retrieve specific columns. Take this example, using the `Person` class
@@ -337,17 +363,19 @@ in the "name" column, in descending (Z-A, or greater to smaller) order:
 Person[] result = Inquiry.get(this)
     .selectFrom("people", Person.class)
     .limit(100)
-    .sort("name DESC")
+    .sortByDesc("name", "rank")
+    .sortByAsc("age")
     .all();
 ```
 
-If you understand SQL, you'll know you can specify multiple sort parameters separated by commas.
+The above would sort every row by name descending (large to small, Z-A) first, *then* by rank descending,
+*and then* by age ascending (small to large). 100 rows would be returned, at the maximum.
 
-```java
-.sort("name DESC, age ASC");
+If you prefer using a full SQL string for sorting, you can:
+
 ```
-
-The above sort value would sort every column by name descending (large to small, Z-A) first, *and then* by age ascending (small to large).
+.sort("name DESC, rank DESC, age ASC")
+```
 
 # Inserting Rows
 
@@ -389,7 +417,8 @@ automatically be updated to a newly inserted row ID.
 
 ### Basics
 
-Updating is similar to insertion, however it results in changed rows rather than new rows:
+Updating is similar to insertion, however it results in changed rows rather than new rows. You can also use
+`WHERE` statements like you can with querying.
 
 ```java
 Person two = new Person("Natalie", 42, 10f, false);
@@ -521,4 +550,4 @@ Photo[] photos = Inquiry.get(this)
     .all();
 ```
 
-Insert, update, and delete work the same way. Just pass that URI.
+Insert, update, and delete work the same way. Just pass that URI instead of a table name.

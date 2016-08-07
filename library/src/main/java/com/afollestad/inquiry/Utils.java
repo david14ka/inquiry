@@ -70,4 +70,29 @@ class Utils {
         sb.append(')');
         return sb.toString();
     }
+
+    @NonNull
+    @CheckResult
+    public static String join(boolean leadingComma, @Nullable String suffix, @NonNull Object... array) {
+        final StringBuilder sb = new StringBuilder();
+        if (leadingComma)
+            sb.append(", ");
+        for (int i = 0; i < array.length; i++) {
+            if (i > 0) sb.append(", ");
+            sb.append(array[i]);
+            if (suffix != null) {
+                sb.append(' ');
+                sb.append(suffix);
+            }
+        }
+        return sb.toString();
+    }
+
+    public static String[] stringifyArray(@Nullable Object[] array) {
+        if (array == null || array.length == 0) return null;
+        final String[] result = new String[array.length];
+        for (int i = 0; i < array.length; i++)
+            result[i] = array[i] + "";
+        return result;
+    }
 }

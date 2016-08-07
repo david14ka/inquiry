@@ -49,7 +49,12 @@ public class MainActivity extends AppCompatActivity {
         }
 
         Inquiry.get(this).selectFrom(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, Photo.class)
-                .sort(String.format("%s DESC", MediaStore.Images.Media.DATE_MODIFIED))
+                .sortByAsc(MediaStore.Images.Media.BUCKET_DISPLAY_NAME)
+                .sortByDesc(MediaStore.Images.Media.DATE_MODIFIED)
+                .where(MediaStore.Images.Media.DATE_MODIFIED + " > ?", System.currentTimeMillis() - (1000 * 60 * 60 * 24))
+                .where(MediaStore.Images.Media.DATE_MODIFIED + " < ?", System.currentTimeMillis())
+                .orWhere(MediaStore.Images.Media.DATE_MODIFIED + " = ?", 0)
+                .orWhereIn("_id", 1, 2, 3, 4)
                 .all(new GetCallback<Photo>() {
                     @Override
                     public void result(@Nullable Photo[] result) {

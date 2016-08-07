@@ -50,8 +50,7 @@ public final class Inquiry {
         private Inquiry newInstance;
         private boolean used;
 
-        @Deprecated
-        public Builder(@NonNull Context context, @Nullable String databaseName) {
+        protected Builder(@NonNull Context context, @Nullable String databaseName) {
             newInstance = new Inquiry(context);
             if (databaseName == null || databaseName.trim().isEmpty()) {
                 databaseName = "default_db";
