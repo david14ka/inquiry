@@ -127,7 +127,8 @@ public final class Inquiry {
 
     public void destroyInstance() {
         if (mInstanceName != null) {
-            mInstances.remove(mInstanceName);
+            if (mInstances != null)
+                mInstances.remove(mInstanceName);
             mInstanceName = null;
         }
         mContext = null;
@@ -141,7 +142,7 @@ public final class Inquiry {
     }
 
     public static void destroy(String instanceName) {
-        if (!mInstances.containsKey(instanceName)) {
+        if (mInstances == null || !mInstances.containsKey(instanceName)) {
             LOG("No instances found to destroy by name %s.", instanceName);
             return;
         }
@@ -166,7 +167,7 @@ public final class Inquiry {
     @CheckResult
     @NonNull
     public static Inquiry get(@NonNull String instanceName) {
-        if (!mInstances.containsKey(instanceName))
+        if (mInstances == null || !mInstances.containsKey(instanceName))
             throw new IllegalStateException(String.format("No persisted instance found for %s, or it's been garbage collected.", instanceName));
         return mInstances.get(instanceName);
     }
