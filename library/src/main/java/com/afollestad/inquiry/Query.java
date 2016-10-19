@@ -302,6 +302,36 @@ public final class Query<RowType, RunReturn> {
         return results[0];
     }
 
+    @CheckResult
+    public boolean any() {
+        return one() != null;
+    }
+
+    @CheckResult
+    public boolean any(AnyPredicate<RowType> predicate) {
+        final RowType[] rows = all();
+        if (rows == null || rows.length == 0) return false;
+        for (RowType r : rows) {
+            if (predicate.match(r)) return true;
+        }
+        return false;
+    }
+
+    @CheckResult
+    public boolean none() {
+        return one() == null;
+    }
+
+    @CheckResult
+    public boolean none(AnyPredicate<RowType> predicate) {
+        final RowType[] rows = all();
+        if (rows == null || rows.length == 0) return true;
+        for (RowType r : rows) {
+            if (predicate.match(r)) return false;
+        }
+        return true;
+    }
+
     @Nullable
     @CheckResult
     public RowType[] all() {
