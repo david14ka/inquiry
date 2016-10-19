@@ -5,7 +5,7 @@ ext {
     PUBLISH_ARTIFACT_ID = 'inquiry'
     PUBLISH_VERSION = '3.2.1'
     TARGET_SDK = 24
-    BUILD_TOOLS = '24.0.0'
+    BUILD_TOOLS = '24.0.3'
     GOOGLE_LIBS = '24.1.1'
 }
 
