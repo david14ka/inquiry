@@ -162,7 +162,7 @@ only be used with INTEGER columns (short, int, or long fields), however.
 
 # ForeignKey Annotation
 
-![ForeignKeyChart1](https://raw.githubusercontent.com/afollestad/inquiry/master/art/foreignkeyarraylist.jpg)
+![ForeignKeyChart1](https://raw.githubusercontent.com/afollestad/inquiry/master/art/foreignkeyarraylist.png)
 
 Inquiry provides a special annotation called `@ForeignKey`. It allows you to specify relationships between
 a table and another. Take the example below. `Person` is a parent class, it has a `List<>` of `Child`
@@ -232,7 +232,7 @@ In addition to using a `List` with the `@ForeignKey` annotation, you can also us
 way as Lists. The only difference being that you can't dynamically add or remove objects from an array without
 reconstructing them.
 
-![ForeignKeyChart1](https://raw.githubusercontent.com/afollestad/inquiry/master/art/foreignkeysingles.jpg)
+![ForeignKeyChart1](https://raw.githubusercontent.com/afollestad/inquiry/master/art/foreignkeysingles.png)
 
 ```java
 public class Person {
