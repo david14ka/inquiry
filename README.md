@@ -473,7 +473,7 @@ boolean aidanReturned = Inquiry.get(this)
 
 ```java
 boolean nothingReturned = Inquiry.get(this)
-    .selectFrom("idk_table", Keyboard.Row.class)
+    .selectFrom("idk_table", Row.class)
     .none();
 ```
 
@@ -482,7 +482,7 @@ matching "Aidan".
 
 ```java
 boolean aidanNotReturned = Inquiry.get(this)
-    .selectFrom("idk_table", Keyboard.Row.class)
+    .selectFrom("idk_table", Row.class)
     .none(it -> it.name.equals("Aidan"));
 ```
 
