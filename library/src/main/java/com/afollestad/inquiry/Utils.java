@@ -118,13 +118,17 @@ class Utils {
     }
 
     public static Class<?> getGenericTypeOfField(Field field) {
-        if (field.getType().isArray())
+        if (field.getType().isArray()) {
             return field.getType().getComponentType();
-        Type type = ((ParameterizedType) field.getGenericType()).getActualTypeArguments()[0];
-        try {
-            return Class.forName(getClassName(type));
-        } catch (ClassNotFoundException e) {
-            throw new IllegalStateException("Unable to find class for " + getClassName(type));
+        } else if (classImplementsList(field.getType())) {
+            Type type = ((ParameterizedType) field.getGenericType()).getActualTypeArguments()[0];
+            try {
+                return Class.forName(getClassName(type));
+            } catch (ClassNotFoundException e) {
+                throw new IllegalStateException("Unable to find class for " + getClassName(type));
+            }
+        } else {
+            return field.getType();
         }
     }
 }

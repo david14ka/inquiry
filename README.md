@@ -22,7 +22,7 @@ Add this to your module's `build.gradle` file (make sure the version matches the
 ```gradle
 dependencies {
     // ... other dependencies
-    compile 'com.afollestad:inquiry:3.2.2'
+    compile 'com.afollestad:inquiry:4.0.0'
 }
 ```
 
@@ -164,8 +164,9 @@ only be used with INTEGER columns (short, int, or long fields), however.
 
 ![ForeignKeyChart](https://raw.githubusercontent.com/afollestad/inquiry/master/art/foreignchildren.jpg)
 
-Another annotation that Inquiry provides is `@ForeignKey`. It's a bit like `@Reference`, but it allows
-you to store a list of children in another table.
+Inquiry provides a special annotation called `@ForeignKey`. It allows you to specify relationships between
+a table and another. Take the example below. `Person` is a parent class, it has a `List<>` of `Child`
+objects.
 
 ```java
 public class Person {
@@ -206,12 +207,10 @@ public class Child {
 ```
 
 Since `inverseFieldName` is set to point to the "parent" field in `Child`, `parent` will be set to a reference
-of the parent `Person` object during queries.
+of the `Person` object during queries.
 
----
-
-**During insertion**, Inquiry will first insert the parent `Person` object. It's `_id` field will be
-populated to the new row ID. It will then loop through `Person` objects inside of the `children` ArrayList,
+**During insertion**, Inquiry will first insert the parent `Person` object. Its `_id` field will be
+populated to the new row ID. It will then loop through `Child` objects inside of the `children` ArrayList,
 and insert each object. The `parentId` of each child will be set to the `_id` of the parent object.
 
 **During querying**, the parent object will be retrieved first. It will then retrieve all children which
@@ -219,13 +218,13 @@ have a `parentId` matching the parent object and populate the `children` ArrayLi
 
 **During updating**, the parent object will be updated first. It will then update each child which is
 present in the `children` ArrayList. Any rows in the foreign table that are *no longer* in the `children`
-ArrayList will be deleted (which have a `parentId` matching the `_id` of the parent object).
+List will be deleted (which have a `parentId` matching the `_id` of the parent object).
 
 **During deletion**, all children with a `parentId` matching the `_id` of the parent object will be deleted, followed
 by the parent object.
 
 Note that you are not limited to one level of foreign children. Foreign children can also have their own
-foreign children.
+foreign children, which are all managed by the library.
 
 ---
 
@@ -284,13 +283,13 @@ Person[] result = Inquiry.get(this)
     .all();
 ```
 
-If you only needed one row, using `one()` instead of `all()` is more efficient:
+If you only needed one row, using `first()` instead of `all()` is more efficient:
 
 ```java
 // NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
 Person result = Inquiry.get(this)
     .selectFrom("people", Person.class)
-    .one();
+    .first();
 ```
 
 ---
@@ -349,7 +348,7 @@ in your tables:
 Person result = Inquiry.get(this)
     .selectFrom("people", Person.class)
     .atPosition(24)
-    .one();
+    .first();
 ```
 
 Behind the scenes, it's using `where(String)` to select the row. `atPosition()` moves to a row position 
@@ -384,7 +383,7 @@ You can combine multiple where and where-in statements together:
 Person[] result = Inquiry.get(this)
     .selectFrom("people", Person.class)
     .where("age > 8")
-    .where("age < 20")
+    .where("age < 21")
     .orWhereIn("name", "Aidan", "Waverly")
     .all();
 ```
@@ -392,10 +391,10 @@ Person[] result = Inquiry.get(this)
 The above query translates to this where statement:
 
 ```bash
-SELECT * FROM people WHERE age > 8 AND age < 20 OR name IN ('Aidan', 'Waverly')
+SELECT * FROM people WHERE age > 8 AND age < 21 OR name IN ('Aidan', 'Waverly')
 ```
 
-It will retrieve all people in between ages 8 and 20, *or* anyone with the name Aidan or Waverly.
+It will retrieve all people in between ages 8 and 21, *or* anyone with the name Aidan or Waverly.
 `where()` and `whereIn()` both have variations that begin with `or`.
 
 ---

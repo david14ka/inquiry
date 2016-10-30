@@ -561,7 +561,7 @@ public final class Query<RowType, RunReturn> {
                 else if (Utils.classImplementsList(fld.getType()))
                     list = (List) fldVal;
                 else
-                    array = new Object[] { fldVal};
+                    array = new Object[]{fldVal};
             }
             Inquiry fkInstance = Inquiry.copy(mInquiry, "[@fk]:" + fkAnn.tableName() + "//" + fkAnn.foreignColumnName(), false);
 
