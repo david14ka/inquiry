@@ -12,6 +12,7 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
 import com.afollestad.inquiry.annotations.ForeignChildren;
+import com.afollestad.inquiry.annotations.Reference;
 import com.afollestad.inquiry.callbacks.GetCallback;
 import com.afollestad.inquiry.callbacks.RunCallback;
 
@@ -80,7 +81,7 @@ public final class Query<RowType, RunReturn> {
     }
 
     private void appendWhere(String statement, String[] args, boolean or) {
-        final int argCount = args != null ? args.length : 0;
+        int argCount = args != null ? args.length : 0;
         if (Utils.countOccurrences(statement, '?') != argCount)
             throw new IllegalArgumentException("There must be the same amount of args as there is '?' characters in your where statement.");
         if (mWhere == null)
@@ -133,7 +134,7 @@ public final class Query<RowType, RunReturn> {
                 cursor.close();
                 throw new IllegalStateException("Didn't find a column named _id in this Cursor.");
             }
-            final int idValue = cursor.getInt(idIndex);
+            int idValue = cursor.getInt(idIndex);
             appendWhere("_id = ?", new String[]{Integer.toString(idValue)}, false);
             cursor.close();
         }
@@ -351,7 +352,7 @@ public final class Query<RowType, RunReturn> {
 
     @CheckResult
     public boolean any(AnyPredicate<RowType> predicate) {
-        final RowType[] rows = all();
+        RowType[] rows = all();
         if (rows == null || rows.length == 0) return false;
         for (RowType r : rows) {
             if (predicate.match(r)) return true;
@@ -366,7 +367,7 @@ public final class Query<RowType, RunReturn> {
 
     @CheckResult
     public boolean none(AnyPredicate<RowType> predicate) {
-        final RowType[] rows = all();
+        RowType[] rows = all();
         if (rows == null || rows.length == 0) return true;
         for (RowType r : rows) {
             if (predicate.match(r)) return false;
@@ -412,7 +413,7 @@ public final class Query<RowType, RunReturn> {
         final List<Field> clsFields = ClassRowConverter.getAllFields(mRowClass);
         switch (mQueryType) {
             case INSERT:
-                final Field idField = mInquiry.getIdField(mRowClass);
+                Field idField = mInquiry.getIdField(mRowClass);
                 Long[] insertedIds = new Long[mValues.length];
                 if (mDatabase != null) {
                     for (int i = 0; i < mValues.length; i++) {
@@ -434,7 +435,7 @@ public final class Query<RowType, RunReturn> {
                 close();
                 return (RunReturn) insertedIds;
             case UPDATE: {
-                final ContentValues values = ClassRowConverter.clsToVals(this, mValues[mValues.length - 1], mProjection, clsFields, true);
+                ContentValues values = ClassRowConverter.clsToVals(this, mValues[mValues.length - 1], mProjection, clsFields, true);
                 if (mDatabase != null) {
                     RunReturn value = (RunReturn) (Integer) mDatabase.update(values, getWhere(), getWhereArgs());
                     postRun(true);
@@ -447,8 +448,8 @@ public final class Query<RowType, RunReturn> {
             }
             case DELETE: {
                 if (mDatabase != null) {
+                    traverseDelete();
                     RunReturn value = (RunReturn) (Integer) mDatabase.delete(getWhere(), getWhereArgs());
-                    postRun(true);
                     close();
                     return value;
                 } else if (mContentUri != null)
@@ -474,6 +475,25 @@ public final class Query<RowType, RunReturn> {
                 });
             }
         }).start();
+    }
+
+    private void traverseDelete() {
+        // TODO apply to all rows which are returned matching the current query where statement
+
+        List<Field> fields = ClassRowConverter.getAllFields(mRowClass);
+        for (Field fld : fields) {
+
+            Reference refAnn = fld.getAnnotation(Reference.class);
+            if (refAnn != null) {
+                // TODO delete reference row
+                continue;
+            }
+
+            ForeignChildren fkAnn = fld.getAnnotation(ForeignChildren.class);
+            if (fkAnn != null) {
+                // TODO delete child rows
+            }
+        }
     }
 
     private void postRun(boolean updateMode) {
@@ -512,32 +532,24 @@ public final class Query<RowType, RunReturn> {
 
             if (list != null && list.size() > 0) {
                 // Update foreign row columns with this row's ID
-                List<Long> stillExistingIds = new ArrayList<>();
                 for (int i = 0; i < list.size(); i++) {
                     ClassRowConverter.setIdField(list.get(i), fkField, rowId);
                     long foreignObjectId = fkIdField.getLong(list.get(i));
                     if (updateMode && foreignObjectId <= 0)
                         throw new IllegalStateException("You can update/delete foreign children when their ID is unset.");
-                    stillExistingIds.add(foreignObjectId);
                 }
 
                 if (updateMode) {
-                    // Update rows which have not been removed from this List field yet
-                    fkInstance.update(fkAnn.tableName(), listGenericType)
-                            .where(fkAnn.foreignColumnName() + " = ?", rowId)
-                            .values(list)
-                            .run();
-                    // Delete rows in foreign table which no longer exist in this List field
-                    Long[] stillExistingIdsArray = stillExistingIds.toArray(new Long[stillExistingIds.size()]);
+                    // Delete any rows in the foreign table which reference this row
                     fkInstance.deleteFrom(fkAnn.tableName(), listGenericType)
-                            .whereNotIn("_id", stillExistingIdsArray)
-                            .run();
-                } else {
-                    // Insert rows from this field into the foreign table
-                    fkInstance.insertInto(fkAnn.tableName(), listGenericType)
-                            .values(list)
+                            .where(fkAnn.foreignColumnName() + " = ?", rowId)
                             .run();
                 }
+
+                // Insert rows from this field into the foreign table
+                fkInstance.insertInto(fkAnn.tableName(), listGenericType)
+                        .values(list)
+                        .run();
             } else {
                 // Delete any rows in the foreign table which reference this row
                 fkInstance.deleteFrom(fkAnn.tableName(), listGenericType)

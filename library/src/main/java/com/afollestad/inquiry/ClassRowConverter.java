@@ -484,9 +484,9 @@ class ClassRowConverter {
                 Column colAnn = fld.getAnnotation(Column.class);
                 if (colAnn == null) continue;
                 columnCount++;
-                if (colAnn.autoIncrement()) continue;
                 Class<?> fldType = fld.getType();
                 Object fldVal = fld.get(row);
+                if (colAnn.autoIncrement() && (Long) fldVal <= 0) continue;
                 if (fldVal == null) continue;
 
                 final String columnName = selectColumnName(colAnn, fld);
