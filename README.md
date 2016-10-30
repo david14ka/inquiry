@@ -139,10 +139,6 @@ public class Person {
     public float rank;
     @Column
     public boolean admin;
-    
-    // Reference annotation is discussed in the next section
-    @Reference(columnName = "spouse", tableName = "spouses")
-    public Person spouse;
 }
 ```
 
@@ -186,7 +182,7 @@ public class Person {
     public String name;
 
     // inverseFieldName is optional, here it refers to the "parent" field in Child class which gets set to a reference to this Person
-    @Reference(tableName = "children", foreignColumnName = "parentId", inverseFieldName = "parent")
+    @ForeignKey(tableName = "children", foreignColumnName = "parentId", inverseFieldName = "parent")
     public List<Child> children;
 }
 
@@ -246,7 +242,7 @@ public class Person {
     public long id;
 
     // inverseFieldName is optional, here it refers to the "parent" field in Child class which gets set to a reference to this Person
-    @Reference(tableName = "children", foreignColumnName = "parentId", inverseFieldName = "parent")
+    @ForeignKey(tableName = "children", foreignColumnName = "parentId", inverseFieldName = "parent")
     public Child[] children;
 }
 ```
@@ -265,7 +261,7 @@ public class Person {
     public long id;
 
     // inverseFieldName is optional, here it refers to the "parent" field in Child class which gets set to a reference to this Person
-    @Reference(tableName = "children", foreignColumnName = "parentId", inverseFieldName = "parent")
+    @ForeignKey(tableName = "children", foreignColumnName = "parentId", inverseFieldName = "parent")
     public Child child;
 }
 ```
@@ -312,7 +308,7 @@ Inquiry.get(this)
 ```
 
 Inquiry will automatically fill in your `@Column` fields with matching columns in each row of the table.
-As mentioned in a previous section, `@Reference` fields are also automatically pulled from their reference table.
+As mentioned in a previous section, `@ForeignKey` fields are also automatically pulled from their foreign table.
 
 ### Where
 
