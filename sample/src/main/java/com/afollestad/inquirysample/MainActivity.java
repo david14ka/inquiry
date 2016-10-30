@@ -1,66 +1,75 @@
 package com.afollestad.inquirysample;
 
-import android.Manifest;
-import android.content.pm.PackageManager;
-import android.os.Build;
 import android.os.Bundle;
-import android.provider.MediaStore;
-import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.LinearLayoutManager;
-import android.support.v7.widget.RecyclerView;
-import android.widget.Toast;
+import android.util.Log;
 
 import com.afollestad.inquiry.Inquiry;
 import com.afollestad.inquiry.callbacks.GetCallback;
+import com.afollestad.inquiry.callbacks.RunCallback;
 
 /**
  * @author Aidan Follestad (afollestad)
  */
 public class MainActivity extends AppCompatActivity {
 
-    private MainAdapter mAdapter;
-
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Inquiry.newInstance(this, "test_db").build();
-        setContentView(R.layout.activity_main);
+        Inquiry iq = Inquiry.newInstance(this, "hello8").build();
 
-        RecyclerView list = (RecyclerView) findViewById(R.id.list);
-        if (list != null) {
-            mAdapter = new MainAdapter();
-            list.setLayoutManager(new LinearLayoutManager(this));
-            list.setAdapter(mAdapter);
+        if (!iq.selectFrom("skillAreas", SkillArea.class).any()) {
+            SkillArea area1 = new SkillArea("Foundation");
+            Skill skill1 = new Skill("Basics", 1);
+            Exercise exercise1 = new Exercise("Exercise 1", "The fundamentals.");
+            Exercise exercise2 = new Exercise("Exercise 2", "How are you?");
+            skill1.exercises.add(exercise1);
+            skill1.exercises.add(exercise2);
+            area1.skills.add(skill1);
+            Skill skill2 = new Skill("Advanced", 2);
+            Exercise exercise3 = new Exercise("Taking it to the next level", "Hey");
+            Exercise exercise4 = new Exercise("Finishing up", "Hello");
+            skill2.exercises.add(exercise3);
+            skill2.exercises.add(exercise4);
+            area1.skills.add(skill2);
+
+            iq.insertInto("skillAreas", SkillArea.class)
+                    .values(area1)
+                    .run(new RunCallback<Long[]>() {
+                        @Override
+                        public void result(Long[] changed) {
+                            Log.v("Done", "Done");
+                        }
+                    });
+        } else {
+            iq.selectFrom("exercises", Exercise.class)
+                    .all(new GetCallback<Exercise>() {
+                        @Override
+                        public void result(@Nullable Exercise[] result) {
+                            Log.v("Done", "Done");
+
+                            Inquiry.get(MainActivity.this)
+                                    .selectFrom("skillAreas", SkillArea.class)
+                                    .all(new GetCallback<SkillArea>() {
+                                        @Override
+                                        public void result(@Nullable SkillArea[] result) {
+                                            Log.v("Done", "Done");
+
+                                            Inquiry.get(MainActivity.this)
+                                                    .update("skillAreas", SkillArea.class)
+                                                    .values(result[0])
+                                                    .run(new RunCallback<Integer>() {
+                                                        @Override
+                                                        public void result(Integer changed) {
+                                                            Log.v("Done", "Done");
+                                                        }
+                                                    });
+                                        }
+                                    });
+                        }
+                    });
         }
-
-        reload();
-    }
-
-    private void reload() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN &&
-                ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) !=
-                        PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, 69);
-            return;
-        }
-
-        Inquiry.get(this).selectFrom(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, Photo.class)
-                .sortByAsc(MediaStore.Images.Media.BUCKET_DISPLAY_NAME)
-                .sortByDesc(MediaStore.Images.Media.DATE_MODIFIED)
-                .where(MediaStore.Images.Media.DATE_MODIFIED + " > ?", System.currentTimeMillis() - (1000 * 60 * 60 * 24))
-                .where(MediaStore.Images.Media.DATE_MODIFIED + " < ?", System.currentTimeMillis())
-                .orWhere(MediaStore.Images.Media.DATE_MODIFIED + " = ?", 0)
-                .orWhereIn("_id", 1, 2, 3, 4)
-                .all(new GetCallback<Photo>() {
-                    @Override
-                    public void result(@Nullable Photo[] result) {
-                        mAdapter.setPhotos(result);
-                    }
-                });
     }
 
     @Override
@@ -68,14 +77,5 @@ public class MainActivity extends AppCompatActivity {
         super.onPause();
         if (isFinishing())
             Inquiry.destroy(this);
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (grantResults[0] == PackageManager.PERMISSION_GRANTED)
-            reload();
-        else
-            Toast.makeText(this, "Permission is needed in order for the sample to work.", Toast.LENGTH_SHORT).show();
     }
 }

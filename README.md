@@ -22,7 +22,7 @@ Add this to your module's `build.gradle` file (make sure the version matches the
 ```gradle
 dependencies {
     // ... other dependencies
-    compile 'com.afollestad:inquiry:3.2.1'
+    compile 'com.afollestad:inquiry:3.2.2'
 }
 ```
 
@@ -33,11 +33,12 @@ dependencies {
 1. [Quick Setup](https://github.com/afollestad/inquiry#quick-setup)
 2. [Instances](https://github.com/afollestad/inquiry#instances)
 3. [Row Objects](https://github.com/afollestad/inquiry#row-objects)
-4. [Table References](https://github.com/afollestad/inquiry#table-references)
+4. [Table Reference Annotation](https://github.com/afollestad/inquiry#table-reference-annotation)
+4. [Foreign Children Annotation](https://github.com/afollestad/inquiry#foreign-children-annotation)
 5. [Querying Rows](https://github.com/afollestad/inquiry#querying-rows)
     1. [Basics](https://github.com/afollestad/inquiry#basics)
     2. [Where](https://github.com/afollestad/inquiry#where)
-    2. [Where In](https://github.com/afollestad/inquiry#where-in)
+    2. [Where In and Where Not In](https://github.com/afollestad/inquiry#where-in-and-where-not-in)
     3. [Combining Where Statements](https://github.com/afollestad/inquiry#combining-where-statements)
     4. [Projection](https://github.com/afollestad/inquiry#projection)
     5. [Sorting and Limiting](https://github.com/afollestad/inquiry#sorting-and-limiting)
@@ -160,10 +161,13 @@ only be used with INTEGER columns (short, int, or long fields), however.
 
 ---
 
-# Table References
+# Table Reference Annotation
 
-In addition to the `@Column` annotation, Inquiry has a special annotation called `@Reference`. This 
-annotation is used to link a field to another table.
+![ReferenceChart](https://raw.githubusercontent.com/afollestad/inquiry/master/art/reference.jpg)
+
+In addition to the `@Column` annotation, Inquiry has a few special annotations that you can use. The
+first is called `@Reference`. This annotation is used to link a field to another table, allowing you
+to add a 3rd dimension to your class object storage.
 
 Let's take the `Person` class from the previous section, but simplify it a bit:
 
@@ -196,8 +200,80 @@ the `spouse` column in the current table will be set to the *_id* of the new row
 **During querying**, Inquiry will see the `@Reference` annotation, and do an automatic lookup for you.
 The value of the `spouse` field is automatically pulled from the second table. It's similar to a JOIN in SQL.
 
+**During deletion**, Inquiry will remove the value in the `spouse` field from the `spouses` table before
+removing the parent row.
+
 Basically, this allows you to have non-primitive column types that are blazing fast to insert or query. 
 No serialization is necessary. You can even have two row objects which reference the same object.
+
+---
+
+# Foreign Children Annotation
+
+![ForeignChildrenChart](https://raw.githubusercontent.com/afollestad/inquiry/master/art/foreignchildren.jpg)
+
+Another annotation that Inquiry provides is `@ForeignChildren`. It's a bit like `@Reference`, but it allows
+you to store a list of children in another table.
+
+```java
+public class Person {
+
+    public Person() {
+        // Default constructor is needed so Inquiry can auto construct instances
+    }
+
+    public Person(String name) {
+        this.name = name;
+    }
+
+    @Column(name = "_id", primaryKey = true, notNull = true, autoIncrement = true)
+    public long id;
+    @Column
+    public String name;
+
+    // inverseFieldName is optional, here it refers to the "parent" field in Child below
+    @Reference(tableName = "children", foreignColumnName = "parentId", inverseFieldName = "parent")
+    public List<Child> children;
+}
+
+public class Child {
+
+    public Child() {
+        // Default constructor is needed so Inquiry can auto construct instances
+    }
+
+    @Column(name = "_id", primaryKey = true, notNull = true, autoIncrement = true)
+    public long id;
+    @Column
+    public String name;
+    @Column
+    public long parentId;
+
+    public Person parent;
+}
+```
+
+Since `inverseFieldName` is set to point to the "parent" field in `Child`, `parent` will be set to a reference
+of the parent `Person` object during queries.
+
+---
+
+**During insertion**, Inquiry will first insert the parent `Person` object. It's `_id` field will be
+populated to the new row ID. It will then loop through `Person` objects inside of the `children` ArrayList,
+and insert each object. The `parentId` of each child will be set to the `_id` of the parent object.
+
+**During querying**, the parent object will be retrieved first. It will then retrieve all children which
+have a `parentId` matching the parent object and populate the `children` ArrayList.
+
+**During updating**, the parent object will be updated first. It will then update each child which is
+present in the `children` ArrayList. Any rows in the foreign table that are *no longer* in the `children`
+ArrayList will be deleted (which have a `parentId` matching the `_id` of the parent object).
+
+**During deletion**, all children with a `parentId` matching the `_id` of the parent object will be deleted, followed
+by the parent object.
+
+Note that you are not limited to one level of foreign children. Foreign children can also have their own
+foreign children.
 
 ---
 
@@ -289,7 +365,7 @@ for this method to work. `atPosition(int)` can even be used when updating or del
 
 ---
 
-### Where In
+### Where In and Where Not In
 
 Here's basic usage of where-in:
 

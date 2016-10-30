@@ -11,6 +11,7 @@ import android.support.annotation.IntRange;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
+import com.afollestad.inquiry.annotations.ForeignChildren;
 import com.afollestad.inquiry.callbacks.GetCallback;
 import com.afollestad.inquiry.callbacks.RunCallback;
 
@@ -20,12 +21,14 @@ import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 
 /**
  * @author Aidan Follestad (afollestad)
  */
+@SuppressWarnings("WeakerAccess")
 @SuppressLint("DefaultLocale")
 public final class Query<RowType, RunReturn> {
 
@@ -39,7 +42,7 @@ public final class Query<RowType, RunReturn> {
     protected final static int UPDATE = 3;
     protected final static int DELETE = 4;
 
-    private final Inquiry mInquiry;
+    protected final Inquiry mInquiry;
     private Uri mContentUri;
     @Nullable
     private final Class<RowType> mRowClass;
@@ -54,6 +57,8 @@ public final class Query<RowType, RunReturn> {
     private StringBuilder mSortOrder;
     private int mLimit;
     private RowType[] mValues;
+
+    protected HashMap<Object, Field> mForeignChildren;
 
     protected Query(@NonNull Inquiry inquiry, @NonNull Uri contentUri, @QueryType int type, @Nullable Class<RowType> mClass) {
         mInquiry = inquiry;
@@ -166,6 +171,16 @@ public final class Query<RowType, RunReturn> {
 
     @NonNull
     @CheckResult
+    private Query<RowType, RunReturn> whereNotIn(@NonNull String columnName, boolean or, @Nullable Object... selectionArgs) {
+        if (selectionArgs == null || selectionArgs.length == 0)
+            throw new IllegalArgumentException("You must specify non-null, non-empty selection args.");
+        final String statement = String.format(Locale.getDefault(), "%s NOT IN %s", columnName, Utils.createArgsString(selectionArgs.length));
+        appendWhere(statement, Utils.stringifyArray(selectionArgs), or);
+        return this;
+    }
+
+    @NonNull
+    @CheckResult
     public Query<RowType, RunReturn> whereIn(@NonNull String columnName, @Nullable Object... selectionArgs) {
         return whereIn(columnName, false, selectionArgs);
     }
@@ -174,6 +189,18 @@ public final class Query<RowType, RunReturn> {
     @CheckResult
     public Query<RowType, RunReturn> orWhereIn(@NonNull String columnName, @Nullable Object... selectionArgs) {
         return whereIn(columnName, true, selectionArgs);
+    }
+
+    @NonNull
+    @CheckResult
+    public Query<RowType, RunReturn> whereNotIn(@NonNull String columnName, @Nullable Object... selectionArgs) {
+        return whereNotIn(columnName, false, selectionArgs);
+    }
+
+    @NonNull
+    @CheckResult
+    public Query<RowType, RunReturn> orWhereNotIn(@NonNull String columnName, @Nullable Object... selectionArgs) {
+        return whereNotIn(columnName, true, selectionArgs);
     }
 
     @NonNull
@@ -248,6 +275,20 @@ public final class Query<RowType, RunReturn> {
 
     @NonNull
     @CheckResult
+    public final Query<RowType, RunReturn> values(@NonNull List<RowType> values) {
+        if (values.size() == 0) {
+            mValues = null;
+            return this;
+        }
+        //noinspection unchecked
+        mValues = (RowType[]) Array.newInstance(mRowClass, values.size());
+        for (int i = 0; i < values.size(); i++)
+            mValues[i] = values.get(i);
+        return this;
+    }
+
+    @NonNull
+    @CheckResult
     public Query<RowType, RunReturn> projection(@NonNull String... values) {
         mProjection = values;
         return this;
@@ -273,13 +314,14 @@ public final class Query<RowType, RunReturn> {
                 if (mDatabase == null) throw new IllegalStateException("Database helper was null.");
                 cursor = mDatabase.query(mProjection, getWhere(), getWhereArgs(), sort);
             }
+
             if (cursor != null) {
                 RowType[] results = null;
                 if (cursor.getCount() > 0) {
                     results = (RowType[]) Array.newInstance(mRowClass, cursor.getCount());
                     int index = 0;
                     while (cursor.moveToNext()) {
-                        results[index] = ClassRowConverter.cursorToCls(mInquiry, cursor, mRowClass);
+                        results[index] = ClassRowConverter.cursorToCls(this, cursor, mRowClass);
                         index++;
                     }
                 }
@@ -370,30 +412,32 @@ public final class Query<RowType, RunReturn> {
         final List<Field> clsFields = ClassRowConverter.getAllFields(mRowClass);
         switch (mQueryType) {
             case INSERT:
-                final Field idField = ClassRowConverter.getIdField(clsFields);
+                final Field idField = mInquiry.getIdField(mRowClass);
                 Long[] insertedIds = new Long[mValues.length];
                 if (mDatabase != null) {
                     for (int i = 0; i < mValues.length; i++) {
                         final RowType row = mValues[i];
-                        insertedIds[i] = mDatabase.insert(ClassRowConverter.clsToVals(mInquiry, row, null, clsFields, false));
+                        insertedIds[i] = mDatabase.insert(ClassRowConverter.clsToVals(this, row, null, clsFields, false));
                         ClassRowConverter.setIdField(row, idField, insertedIds[i]);
                     }
                 } else if (mContentUri != null) {
                     for (int i = 0; i < mValues.length; i++) {
                         final RowType row = mValues[i];
-                        final Uri uri = cr.insert(mContentUri, ClassRowConverter.clsToVals(mInquiry, row, null, clsFields, false));
+                        final Uri uri = cr.insert(mContentUri, ClassRowConverter.clsToVals(this, row, null, clsFields, false));
                         if (uri == null) return (RunReturn) (Long) (-1L);
                         insertedIds[i] = Long.parseLong(uri.getLastPathSegment());
                         ClassRowConverter.setIdField(row, idField, insertedIds[i]);
                     }
                 } else
                     throw new IllegalStateException("Database helper was null.");
+                postRun(false);
                 close();
                 return (RunReturn) insertedIds;
             case UPDATE: {
-                final ContentValues values = ClassRowConverter.clsToVals(mInquiry, mValues[mValues.length - 1], mProjection, clsFields, true);
+                final ContentValues values = ClassRowConverter.clsToVals(this, mValues[mValues.length - 1], mProjection, clsFields, true);
                 if (mDatabase != null) {
                     RunReturn value = (RunReturn) (Integer) mDatabase.update(values, getWhere(), getWhereArgs());
+                    postRun(true);
                     close();
                     return value;
                 } else if (mContentUri != null)
@@ -404,6 +448,7 @@ public final class Query<RowType, RunReturn> {
             case DELETE: {
                 if (mDatabase != null) {
                     RunReturn value = (RunReturn) (Integer) mDatabase.delete(getWhere(), getWhereArgs());
+                    postRun(true);
                     close();
                     return value;
                 } else if (mContentUri != null)
@@ -429,6 +474,81 @@ public final class Query<RowType, RunReturn> {
                 });
             }
         }).start();
+    }
+
+    private void postRun(boolean updateMode) {
+        if (mForeignChildren == null || mForeignChildren.size() == 0) return;
+        for (Object row : mForeignChildren.keySet()) {
+            Field field = mForeignChildren.get(row);
+            postRun(updateMode, row, field);
+        }
+    }
+
+    private void postRun(boolean updateMode, Object row, Field fld) {
+        try {
+            ForeignChildren fkAnn = fld.getAnnotation(ForeignChildren.class);
+            Object fldVal = fld.get(row);
+            if (!Utils.classImplementsList(fld.getType()))
+                throw new IllegalStateException("You can only use the @ForeignChildren annotation on field types which implement the List interface.");
+
+            Class<?> listGenericType = Utils.getGenericTypeOfField(fld);
+            Field idField = mInquiry.getIdField(row.getClass());
+            Field fkIdField = mInquiry.getIdField(listGenericType);
+            Field fkField = ClassRowConverter.getField(ClassRowConverter.getAllFields(listGenericType),
+                    fkAnn.foreignColumnName(), Long.class, long.class);
+
+            if (idField == null)
+                throw new IllegalStateException("You cannot use the @ForeignChildren annotation on a field within a class that doesn't have an _id column.");
+            if (fkIdField == null)
+                throw new IllegalStateException("The @ForeignChildren annotation can only be used on fields which contain class objects that have an _id column, " + listGenericType + " does not.");
+            if (fkField == null)
+                throw new IllegalStateException("The @ForeignChildren annotation on " + fld.getName() + " references a non-existent column (or a column which can't hold an Int64 ID): " + fkAnn.foreignColumnName());
+
+            long rowId = idField.getLong(row);
+            if (rowId <= 0)
+                throw new IllegalStateException("The current row's ID is 0, you cannot insert/update @ForeignChildren fields if the parent class has no ID.");
+            List list = (List) fldVal;
+            Inquiry fkInstance = Inquiry.copy(mInquiry, "[@fk]:" + fkAnn.tableName() + "//" + fkAnn.foreignColumnName(), false);
+
+            if (list != null && list.size() > 0) {
+                // Update foreign row columns with this row's ID
+                List<Long> stillExistingIds = new ArrayList<>();
+                for (int i = 0; i < list.size(); i++) {
+                    ClassRowConverter.setIdField(list.get(i), fkField, rowId);
+                    long foreignObjectId = fkIdField.getLong(list.get(i));
+                    if (updateMode && foreignObjectId <= 0)
+                        throw new IllegalStateException("You can update/delete foreign children when their ID is unset.");
+                    stillExistingIds.add(foreignObjectId);
+                }
+
+                if (updateMode) {
+                    // Update rows which have not been removed from this List field yet
+                    fkInstance.update(fkAnn.tableName(), listGenericType)
+                            .where(fkAnn.foreignColumnName() + " = ?", rowId)
+                            .values(list)
+                            .run();
+                    // Delete rows in foreign table which no longer exist in this List field
+                    Long[] stillExistingIdsArray = stillExistingIds.toArray(new Long[stillExistingIds.size()]);
+                    fkInstance.deleteFrom(fkAnn.tableName(), listGenericType)
+                            .whereNotIn("_id", stillExistingIdsArray)
+                            .run();
+                } else {
+                    // Insert rows from this field into the foreign table
+                    fkInstance.insertInto(fkAnn.tableName(), listGenericType)
+                            .values(list)
+                            .run();
+                }
+            } else {
+                // Delete any rows in the foreign table which reference this row
+                fkInstance.deleteFrom(fkAnn.tableName(), listGenericType)
+                        .where(fkAnn.foreignColumnName() + " = ?", rowId)
+                        .run();
+            }
+
+            fkInstance.destroyInstance();
+        } catch (Throwable t) {
+            throw new RuntimeException(t);
+        }
     }
 
     public void close() {

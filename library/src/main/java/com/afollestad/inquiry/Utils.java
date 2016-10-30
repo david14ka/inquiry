@@ -8,6 +8,10 @@ import android.support.annotation.Nullable;
 import java.io.Closeable;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.util.List;
 
 /**
  * @author Aidan Follestad (afollestad)
@@ -94,5 +98,31 @@ class Utils {
         for (int i = 0; i < array.length; i++)
             result[i] = array[i] + "";
         return result;
+    }
+
+    public static boolean classImplementsList(Class<?> cls) {
+        if (cls.equals(List.class))
+            return true;
+        Class[] is = cls.getInterfaces();
+        for (Class i : is)
+            if (i.equals(List.class))
+                return true;
+        return false;
+    }
+
+    private static String getClassName(Type type) {
+        String fullName = type.toString();
+        if (fullName.startsWith("class "))
+            return fullName.substring("class ".length());
+        return fullName;
+    }
+
+    public static Class<?> getGenericTypeOfField(Field field) {
+        Type type = ((ParameterizedType) field.getGenericType()).getActualTypeArguments()[0];
+        try {
+            return Class.forName(getClassName(type));
+        } catch (ClassNotFoundException e) {
+            throw new IllegalStateException("Unable to find class for " + getClassName(type));
+        }
     }
 }

@@ -10,14 +10,22 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.util.Log;
 
+import com.afollestad.inquiry.annotations.Column;
+
+import java.lang.reflect.Field;
 import java.util.HashMap;
+import java.util.List;
+
+import static com.afollestad.inquiry.ClassRowConverter.getAllFields;
 
 /**
  * @author Aidan Follestad (afollestad)
  */
+@SuppressWarnings("WeakerAccess")
 public final class Inquiry {
 
     private static HashMap<String, Inquiry> mInstances;
+    private HashMap<String, Field> mIdFieldCache;
 
     private static String getInstanceName(@NonNull Context forContext) {
         return forContext.getClass().getName();
@@ -29,12 +37,13 @@ public final class Inquiry {
         Log.d("Inquiry", msg);
     }
 
-    protected Context mContext;
-    protected Handler mHandler;
+    Context mContext;
+    Handler mHandler;
     @Nullable
-    protected String mDatabaseName;
-    protected int mDatabaseVersion = 1;
-    protected String mInstanceName;
+    String mDatabaseName;
+    boolean mCacheIdFields;
+    private int mDatabaseVersion = 1;
+    private String mInstanceName;
 
     private Inquiry(@NonNull Context context) {
         //noinspection ConstantConditions
@@ -43,6 +52,37 @@ public final class Inquiry {
         mContext = context;
         mInstanceName = getInstanceName(context);
         mDatabaseVersion = 1;
+        mIdFieldCache = new HashMap<>();
+    }
+
+    @Nullable
+    Field getIdField(Class<?> forClass) {
+        Field idField = null;
+        if (mCacheIdFields && mIdFieldCache != null) {
+            idField = mIdFieldCache.get(forClass.getName());
+            if (idField != null) return idField;
+        }
+        List<Field> allFields = getAllFields(forClass);
+        for (Field field : allFields) {
+            final Column colAnn = field.getAnnotation(Column.class);
+            if (colAnn == null) continue;
+            final String colName = ClassRowConverter.selectColumnName(colAnn, field);
+            if (colName.equals("_id")) {
+                if (!colAnn.autoIncrement() || !colAnn.primaryKey())
+                    throw new IllegalStateException("Fields which represent _id columns MUST have autoIncrement() AND primaryKey() enabled.");
+                if (field.getType() != Long.class && field.getType() != long.class)
+                    throw new IllegalStateException("Fields which represent _id columns MUST be of type Long.");
+                idField = field;
+            }
+        }
+        if (idField == null)
+            return null;
+        if (mCacheIdFields) {
+            if (mIdFieldCache == null)
+                mIdFieldCache = new HashMap<>();
+            mIdFieldCache.put(forClass.getName(), idField);
+        }
+        return idField;
     }
 
     public static class Builder {
@@ -57,6 +97,7 @@ public final class Inquiry {
                 LOG("Using default database name: %s", databaseName);
             }
             newInstance.mDatabaseName = databaseName;
+            newInstance.mCacheIdFields = true;
         }
 
         @NonNull
@@ -74,6 +115,12 @@ public final class Inquiry {
         @NonNull
         public Builder handler(@Nullable Handler handler) {
             newInstance.mHandler = handler;
+            return this;
+        }
+
+        @NonNull
+        public Builder cacheIdFields(boolean cache) {
+            newInstance.mCacheIdFields = cache;
             return this;
         }
 
@@ -126,6 +173,10 @@ public final class Inquiry {
     }
 
     public void destroyInstance() {
+        if (mIdFieldCache != null) {
+            mIdFieldCache.clear();
+            mIdFieldCache = null;
+        }
         if (mInstanceName != null) {
             if (mInstances != null)
                 mInstances.remove(mInstanceName);
