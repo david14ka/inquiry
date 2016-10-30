@@ -513,7 +513,7 @@ public class Person {
     @Column
     public String name;
 
-    // inverseFieldName is optional, here it refers to the "parent" field in Child class which gets set to a reference to this Person
+    // inverseFieldName is optional, here it refers to the "parent" field in the Child class which gets set to a reference to this Person
     @ForeignKey(tableName = "children", foreignColumnName = "parentId", inverseFieldName = "parent")
     public List<Child> children;
 }
@@ -572,7 +572,7 @@ public class Person {
     @Column(name = "_id", primaryKey = true, notNull = true, autoIncrement = true)
     public long id;
 
-    // inverseFieldName is optional, here it refers to the "parent" field in Child class which gets set to a reference to this Person
+    // inverseFieldName is optional, here it refers to the "parent" field in the Child class which gets set to a reference to this Person
     @ForeignKey(tableName = "children", foreignColumnName = "parentId", inverseFieldName = "parent")
     public Child[] children;
 }
@@ -594,7 +594,7 @@ public class Person {
     @Column(name = "_id", primaryKey = true, notNull = true, autoIncrement = true)
     public long id;
 
-    // inverseFieldName is optional, here it refers to the "parent" field in Child class which gets set to a reference to this Person
+    // inverseFieldName is optional, here it refers to the "parent" field in the Child class which gets set to a reference to this Person
     @ForeignKey(tableName = "children", foreignColumnName = "parentId", inverseFieldName = "parent")
     public Child child;
 }
