@@ -47,7 +47,7 @@ dependencies {
     2. [Projection](https://github.com/afollestad/inquiry#projection-1)
 7. [Deleting Rows](https://github.com/afollestad/inquiry#deleting-rows)
 8. [Dropping Tables](https://github.com/afollestad/inquiry#dropping-tables)
-9. [@ForeignKey Annotation](https://github.com/afollestad/inquiry#foreignkey-annotation)
+9. [ForeignKey Annotation](https://github.com/afollestad/inquiry#foreignkey-annotation)
 10. [Extra: Accessing Content Providers](https://github.com/afollestad/inquiry#extra-accessing-content-providers)
     1. [Setup](https://github.com/afollestad/inquiry#setup)
     2. [Basics](https://github.com/afollestad/inquiry#basics-2)
