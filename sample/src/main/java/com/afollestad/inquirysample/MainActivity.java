@@ -17,7 +17,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Inquiry iq = Inquiry.newInstance(this, "hello10").build();
+        Inquiry iq = Inquiry.newInstance(this, "test2").build();
 
         if (!iq.selectFrom("skillAreas", SkillArea.class).any()) {
             SkillArea area1 = new SkillArea("Foundation");
@@ -55,28 +55,6 @@ public class MainActivity extends AppCompatActivity {
                                         @Override
                                         public void result(@Nullable SkillArea[] result) {
                                             Log.v("Done", "Done");
-
-                                            if (result[0].skills.size() > 0)
-                                                result[0].skills.remove(0);
-
-                                            Inquiry.get(MainActivity.this)
-                                                    .update("skillAreas", SkillArea.class)
-                                                    .values(result[0])
-                                                    .run(new RunCallback<Integer>() {
-                                                        @Override
-                                                        public void result(Integer changed) {
-                                                            Log.v("Done", "Done");
-
-                                                            Inquiry.get(MainActivity.this)
-                                                                    .selectFrom("skillAreas", SkillArea.class)
-                                                                    .all(new GetCallback<SkillArea>() {
-                                                                        @Override
-                                                                        public void result(@Nullable SkillArea[] result) {
-                                                                            Log.v("Done", "Done");
-                                                                        }
-                                                                    });
-                                                        }
-                                                    });
                                         }
                                     });
                         }

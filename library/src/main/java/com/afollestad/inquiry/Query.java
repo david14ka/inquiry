@@ -11,8 +11,7 @@ import android.support.annotation.IntRange;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
-import com.afollestad.inquiry.annotations.ForeignChildren;
-import com.afollestad.inquiry.annotations.Reference;
+import com.afollestad.inquiry.annotations.ForeignKey;
 import com.afollestad.inquiry.callbacks.GetCallback;
 import com.afollestad.inquiry.callbacks.RunCallback;
 
@@ -81,6 +80,7 @@ public final class Query<RowType, RunReturn> {
     }
 
     private void appendWhere(String statement, String[] args, boolean or) {
+        if (statement == null || statement.isEmpty()) return;
         int argCount = args != null ? args.length : 0;
         if (Utils.countOccurrences(statement, '?') != argCount)
             throw new IllegalArgumentException("There must be the same amount of args as there is '?' characters in your where statement.");
@@ -268,6 +268,13 @@ public final class Query<RowType, RunReturn> {
 
     @NonNull
     @CheckResult
+    protected final Query<RowType, RunReturn> valuesArray(@NonNull Object[] values) {
+        mValues = (RowType[]) values;
+        return this;
+    }
+
+    @NonNull
+    @CheckResult
     @SafeVarargs
     public final Query<RowType, RunReturn> values(@NonNull RowType... values) {
         mValues = values;
@@ -305,39 +312,49 @@ public final class Query<RowType, RunReturn> {
             return null;
         if (mProjection == null)
             mProjection = ClassRowConverter.generateProjection(mRowClass);
-        if (mQueryType == SELECT) {
-            String sort = getSort();
-            if (limit > -1) sort += String.format(Locale.getDefault(), " LIMIT %d", limit);
-            Cursor cursor;
-            if (mContentUri != null) {
-                cursor = mInquiry.mContext.getContentResolver().query(mContentUri, mProjection, getWhere(), getWhereArgs(), sort);
-            } else {
-                if (mDatabase == null) throw new IllegalStateException("Database helper was null.");
-                cursor = mDatabase.query(mProjection, getWhere(), getWhereArgs(), sort);
-            }
 
-            if (cursor != null) {
-                RowType[] results = null;
-                if (cursor.getCount() > 0) {
-                    results = (RowType[]) Array.newInstance(mRowClass, cursor.getCount());
-                    int index = 0;
-                    while (cursor.moveToNext()) {
-                        results[index] = ClassRowConverter.cursorToCls(this, cursor, mRowClass);
-                        index++;
-                    }
-                }
-                cursor.close();
-                close();
-                return results;
-            }
+        String sort = getSort();
+        if (limit > -1) sort += String.format(Locale.getDefault(), " LIMIT %d", limit);
+        Cursor cursor;
+        if (mContentUri != null) {
+            cursor = mInquiry.mContext.getContentResolver().query(mContentUri, mProjection, getWhere(), getWhereArgs(), sort);
+        } else {
+            if (mDatabase == null) throw new IllegalStateException("Database helper was null.");
+            cursor = mDatabase.query(mProjection, getWhere(), getWhereArgs(), sort);
         }
+
+        if (cursor != null) {
+            RowType[] results = null;
+            if (cursor.getCount() > 0) {
+                results = (RowType[]) Array.newInstance(mRowClass, cursor.getCount());
+                int index = 0;
+                while (cursor.moveToNext()) {
+                    results[index] = ClassRowConverter.cursorToCls(this, cursor, mRowClass);
+                    index++;
+                }
+            }
+            cursor.close();
+            close();
+            return results;
+        }
+
         close();
         return null;
     }
 
+    /**
+     * @deprecated Use {{@link #first()}} instead.
+     */
     @Nullable
     @CheckResult
+    @Deprecated
     public RowType one() {
+        return first();
+    }
+
+    @Nullable
+    @CheckResult
+    public RowType first() {
         if (mRowClass == null) return null;
         RowType[] results = getInternal(1);
         if (results == null || results.length == 0)
@@ -347,7 +364,7 @@ public final class Query<RowType, RunReturn> {
 
     @CheckResult
     public boolean any() {
-        return one() != null;
+        return first() != null;
     }
 
     @CheckResult
@@ -362,7 +379,7 @@ public final class Query<RowType, RunReturn> {
 
     @CheckResult
     public boolean none() {
-        return one() == null;
+        return first() == null;
     }
 
     @CheckResult
@@ -478,20 +495,30 @@ public final class Query<RowType, RunReturn> {
     }
 
     private void traverseDelete() {
-        // TODO apply to all rows which are returned matching the current query where statement
-
+        RowType[] rowsThatWillDelete = all();
+        if (rowsThatWillDelete == null || rowsThatWillDelete.length == 0) return;
         List<Field> fields = ClassRowConverter.getAllFields(mRowClass);
-        for (Field fld : fields) {
 
-            Reference refAnn = fld.getAnnotation(Reference.class);
-            if (refAnn != null) {
-                // TODO delete reference row
-                continue;
-            }
+        for (RowType row : rowsThatWillDelete) {
+            for (Field fld : fields) {
 
-            ForeignChildren fkAnn = fld.getAnnotation(ForeignChildren.class);
-            if (fkAnn != null) {
-                // TODO delete child rows
+                ForeignKey fkAnn = fld.getAnnotation(ForeignKey.class);
+                if (fkAnn != null) {
+                    try {
+                        Field rowIdField = mInquiry.getIdField(mRowClass);
+                        if (rowIdField == null)
+                            throw new IllegalStateException("No _id column field found in " + mRowClass);
+                        Class<?> listGenericType = Utils.getGenericTypeOfField(fld);
+                        long rowId = rowIdField.getLong(row);
+                        Inquiry fkInstance = Inquiry.copy(mInquiry, "[@fk]:" + fkAnn.tableName() + "//" + fkAnn.foreignColumnName(), false);
+                        fkInstance.deleteFrom(fkAnn.tableName(), listGenericType)
+                                .where(fkAnn.foreignColumnName() + " = ?", rowId)
+                                .run();
+                        fkInstance.destroyInstance();
+                    } catch (Throwable t) {
+                        throw new RuntimeException(t);
+                    }
+                }
             }
         }
     }
@@ -506,11 +533,8 @@ public final class Query<RowType, RunReturn> {
 
     private void postRun(boolean updateMode, Object row, Field fld) {
         try {
-            ForeignChildren fkAnn = fld.getAnnotation(ForeignChildren.class);
+            ForeignKey fkAnn = fld.getAnnotation(ForeignKey.class);
             Object fldVal = fld.get(row);
-            if (!Utils.classImplementsList(fld.getType()))
-                throw new IllegalStateException("You can only use the @ForeignChildren annotation on field types which implement the List interface.");
-
             Class<?> listGenericType = Utils.getGenericTypeOfField(fld);
             Field idField = mInquiry.getIdField(row.getClass());
             Field fkIdField = mInquiry.getIdField(listGenericType);
@@ -518,25 +542,45 @@ public final class Query<RowType, RunReturn> {
                     fkAnn.foreignColumnName(), Long.class, long.class);
 
             if (idField == null)
-                throw new IllegalStateException("You cannot use the @ForeignChildren annotation on a field within a class that doesn't have an _id column.");
+                throw new IllegalStateException("You cannot use the @ForeignKey annotation on a field within a class that doesn't have an _id column.");
             if (fkIdField == null)
-                throw new IllegalStateException("The @ForeignChildren annotation can only be used on fields which contain class objects that have an _id column, " + listGenericType + " does not.");
+                throw new IllegalStateException("The @ForeignKey annotation can only be used on fields which contain class objects that have an _id column, " + listGenericType + " does not.");
             if (fkField == null)
-                throw new IllegalStateException("The @ForeignChildren annotation on " + fld.getName() + " references a non-existent column (or a column which can't hold an Int64 ID): " + fkAnn.foreignColumnName());
+                throw new IllegalStateException("The @ForeignKey annotation on " + fld.getName() + " references a non-existent column (or a column which can't hold an Int64 ID): " + fkAnn.foreignColumnName());
 
             long rowId = idField.getLong(row);
             if (rowId <= 0)
-                throw new IllegalStateException("The current row's ID is 0, you cannot insert/update @ForeignChildren fields if the parent class has no ID.");
-            List list = (List) fldVal;
+                throw new IllegalStateException("The current row's ID is 0, you cannot insert/update @ForeignKey fields if the parent class has no ID.");
+
+            List list = null;
+            Object[] array = null;
+
+            if (fldVal != null) {
+                if (fld.getType().isArray())
+                    array = (Object[]) fldVal;
+                else if (Utils.classImplementsList(fld.getType()))
+                    list = (List) fldVal;
+                else
+                    array = new Object[] { fldVal};
+            }
             Inquiry fkInstance = Inquiry.copy(mInquiry, "[@fk]:" + fkAnn.tableName() + "//" + fkAnn.foreignColumnName(), false);
 
-            if (list != null && list.size() > 0) {
+            if ((array != null && array.length > 0) || (list != null && list.size() > 0)) {
                 // Update foreign row columns with this row's ID
-                for (int i = 0; i < list.size(); i++) {
-                    ClassRowConverter.setIdField(list.get(i), fkField, rowId);
-                    long foreignObjectId = fkIdField.getLong(list.get(i));
-                    if (updateMode && foreignObjectId <= 0)
-                        throw new IllegalStateException("You can update/delete foreign children when their ID is unset.");
+                if (array != null) {
+                    for (Object child : array) {
+                        ClassRowConverter.setIdField(child, fkField, rowId);
+                        long foreignObjectId = fkIdField.getLong(child);
+                        if (updateMode && foreignObjectId <= 0)
+                            throw new IllegalStateException("You can't update/delete foreign children when their ID is unset.");
+                    }
+                } else {
+                    for (int i = 0; i < list.size(); i++) {
+                        ClassRowConverter.setIdField(list.get(i), fkField, rowId);
+                        long foreignObjectId = fkIdField.getLong(list.get(i));
+                        if (updateMode && foreignObjectId <= 0)
+                            throw new IllegalStateException("You can't update/delete foreign children when their ID is unset.");
+                    }
                 }
 
                 if (updateMode) {
@@ -547,9 +591,15 @@ public final class Query<RowType, RunReturn> {
                 }
 
                 // Insert rows from this field into the foreign table
-                fkInstance.insertInto(fkAnn.tableName(), listGenericType)
-                        .values(list)
-                        .run();
+                if (array != null) {
+                    fkInstance.insertInto(fkAnn.tableName(), listGenericType)
+                            .valuesArray(array)
+                            .run();
+                } else {
+                    fkInstance.insertInto(fkAnn.tableName(), listGenericType)
+                            .values(list)
+                            .run();
+                }
             } else {
                 // Delete any rows in the foreign table which reference this row
                 fkInstance.deleteFrom(fkAnn.tableName(), listGenericType)

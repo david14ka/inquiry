@@ -1,7 +1,7 @@
 package com.afollestad.inquirysample;
 
 import com.afollestad.inquiry.annotations.Column;
-import com.afollestad.inquiry.annotations.ForeignChildren;
+import com.afollestad.inquiry.annotations.ForeignKey;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +25,6 @@ public class SkillArea {
     @Column
     public String name;
 
-    @ForeignChildren(tableName = "skills", foreignColumnName = "skillAreaId", inverseFieldName = "skillArea")
+    @ForeignKey(tableName = "skills", foreignColumnName = "skillAreaId", inverseFieldName = "skillArea")
     public List<Skill> skills;
 }

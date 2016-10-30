@@ -118,6 +118,8 @@ class Utils {
     }
 
     public static Class<?> getGenericTypeOfField(Field field) {
+        if (field.getType().isArray())
+            return field.getType().getComponentType();
         Type type = ((ParameterizedType) field.getGenericType()).getActualTypeArguments()[0];
         try {
             return Class.forName(getClassName(type));

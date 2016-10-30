@@ -9,8 +9,7 @@ import android.support.annotation.Nullable;
 import android.util.Log;
 
 import com.afollestad.inquiry.annotations.Column;
-import com.afollestad.inquiry.annotations.ForeignChildren;
-import com.afollestad.inquiry.annotations.Reference;
+import com.afollestad.inquiry.annotations.ForeignKey;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -90,12 +89,10 @@ class ClassRowConverter {
 
     @Nullable
     private static String getFieldSchema(Field field) {
-        ForeignChildren fkAnnotation = field.getAnnotation(ForeignChildren.class);
+        ForeignKey fkAnnotation = field.getAnnotation(ForeignKey.class);
         if (fkAnnotation != null)
             return null;
-        Reference refAnnotation = field.getAnnotation(Reference.class);
-        if (refAnnotation != null)
-            return String.format("%s INTEGER", selectColumnName(refAnnotation, field));
+
         Column colAnnotation = field.getAnnotation(Column.class);
         if (colAnnotation == null) return null;
         StringBuilder colName = new StringBuilder(selectColumnName(colAnnotation, field));
@@ -122,7 +119,7 @@ class ClassRowConverter {
             sb.append(schema);
         }
         if (sb.length() == 0)
-            throw new IllegalStateException("Class " + cls.getName() + " has no column/reference fields.");
+            throw new IllegalStateException("Class " + cls.getName() + " has no @Column fields.");
         Log.d("Inquiry", String.format("Scheme for %s: %s", cls.getName(), sb.toString()));
         return sb.toString();
     }
@@ -144,21 +141,22 @@ class ClassRowConverter {
     private static void loadFieldIntoRow(Query query, Cursor cursor, Field field, Object row, int columnIndex, @DataType.TypeDef int columnType) throws Exception {
         Class<?> fieldType = field.getType();
 
-        ForeignChildren fkAnn = field.getAnnotation(ForeignChildren.class);
+        ForeignKey fkAnn = field.getAnnotation(ForeignKey.class);
         if (fkAnn != null) {
-            if (!Utils.classImplementsList(fieldType))
-                throw new IllegalStateException("You can only use the @ForeignChildren annotation on field types which implement the List interface.");
             Field idField = query.mInquiry.getIdField(row.getClass());
             if (idField == null)
-                throw new IllegalStateException("You cannot use the @ForeignChildren annotation on a field within a class that doesn't have an _id column.");
+                throw new IllegalStateException("You cannot use the @ForeignKey annotation on a field within a class that doesn't have an _id column.");
             Inquiry fkInstance = Inquiry.copy(query.mInquiry, "[@fk]:" + fkAnn.tableName() + "//" + fkAnn.foreignColumnName(), false);
             Class<?> listGenericType = Utils.getGenericTypeOfField(field);
+
             Object[] vals = fkInstance
                     .selectFrom(fkAnn.tableName(), listGenericType)
                     .where(fkAnn.foreignColumnName() + " = ?", idField.getLong(row))
                     .all();
             if (vals == null || vals.length == 0) {
-                field.set(row, new ArrayList(0));
+                if (Utils.classImplementsList(fieldType))
+                    field.set(row, new ArrayList(0));
+                else field.set(row, null);
             } else {
                 if (!fkAnn.inverseFieldName().isEmpty()) {
                     for (Object val : vals) {
@@ -168,9 +166,15 @@ class ClassRowConverter {
                         inverseField.set(val, row);
                     }
                 }
-                List list = new ArrayList(vals.length);
-                Collections.addAll(list, vals);
-                field.set(row, list);
+                if (Utils.classImplementsList(fieldType)) {
+                    List list = new ArrayList(vals.length);
+                    Collections.addAll(list, vals);
+                    field.set(row, list);
+                } else if (fieldType.isArray()) {
+                    field.set(row, vals);
+                } else {
+                    field.set(row, vals[0]);
+                }
             }
             fkInstance.destroyInstance();
             return;
@@ -190,19 +194,6 @@ class ClassRowConverter {
             } else {
                 field.set(row, null);
             }
-            return;
-        }
-
-        Reference refAnn = field.getAnnotation(Reference.class);
-        if (refAnn != null) {
-            long id = cursor.getLong(columnIndex);
-            Inquiry refInstance = Inquiry.copy(query.mInquiry, "[@ref]:" + refAnn.tableName() + "//" + refAnn.columnName(), false);
-            Object val = refInstance
-                    .selectFrom(refAnn.tableName(), field.getType())
-                    .where("_id = ?", id)
-                    .one();
-            field.set(row, val);
-            refInstance.destroyInstance();
             return;
         }
 
@@ -275,23 +266,14 @@ class ClassRowConverter {
         HashMap<String, Field> cache = new HashMap<>();
         List<Field> fields = getAllFields(cls);
         for (Field fld : fields) {
-            ForeignChildren fkAnn = fld.getAnnotation(ForeignChildren.class);
+            ForeignKey fkAnn = fld.getAnnotation(ForeignKey.class);
             if (fkAnn != null) {
                 outFkFields.add(fld);
                 continue;
             }
 
-            String name = null;
-            Reference refAnn = fld.getAnnotation(Reference.class);
-            if (refAnn != null)
-                name = selectColumnName(refAnn, fld);
-            if (name == null) {
-                final Column colAnn = fld.getAnnotation(Column.class);
-                if (colAnn != null)
-                    name = selectColumnName(colAnn, fld);
-            }
-            if (name == null)
-                continue;
+            Column colAnn = fld.getAnnotation(Column.class);
+            String name = selectColumnName(colAnn, fld);
             cache.put(name, fld);
         }
         return cache;
@@ -371,25 +353,14 @@ class ClassRowConverter {
         List<Field> fields = getAllFields(cls);
         for (Field fld : fields) {
             fld.setAccessible(true);
-            Reference refAnn = fld.getAnnotation(Reference.class);
-            if (refAnn != null) {
-                projection.add(selectColumnName(refAnn, fld));
-            } else {
-                Column colAnn = fld.getAnnotation(Column.class);
-                if (colAnn == null) continue;
-                projection.add(selectColumnName(colAnn, fld));
-            }
+            ForeignKey refAnn = fld.getAnnotation(ForeignKey.class);
+            if (refAnn != null)
+                continue;
+            Column colAnn = fld.getAnnotation(Column.class);
+            if (colAnn == null) continue;
+            projection.add(selectColumnName(colAnn, fld));
         }
         return projection.toArray(new String[projection.size()]);
-    }
-
-    private static String selectColumnName(Reference ann, Field fld) {
-        if (ann == null)
-            ann = fld.getAnnotation(Reference.class);
-        if (ann == null) return fld.getName();
-        if (!ann.columnName().trim().isEmpty())
-            return ann.columnName();
-        return fld.getName();
     }
 
     static String selectColumnName(Column ann, Field fld) {
@@ -433,51 +404,11 @@ class ClassRowConverter {
                     if (skip) continue;
                 }
 
-                ForeignChildren fkAnn = fld.getAnnotation(ForeignChildren.class);
+                ForeignKey fkAnn = fld.getAnnotation(ForeignKey.class);
                 if (fkAnn != null) {
                     if (query.mForeignChildren == null)
                         query.mForeignChildren = new HashMap<>();
                     query.mForeignChildren.put(row, fld);
-                    continue;
-                }
-
-                Reference refAnn = fld.getAnnotation(Reference.class);
-                if (refAnn != null) {
-                    Object fldVal = fld.get(row);
-                    long id = -1;
-                    Inquiry refInstance = Inquiry.copy(query.mInquiry, "[@ref]:" + refAnn.tableName() + "//" + refAnn.columnName(), false);
-
-                    Field idField = query.mInquiry.getIdField(fld.getType());
-                    if (idField == null)
-                        throw new IllegalStateException("Class " + fld.getType().getName() + " needs an _id column in order to be used as a @Reference.");
-
-                    if (updateMode) {
-                        long colId = idField.getLong(fldVal);
-                        if (fldVal != null) {
-                            // Field is not null, update reference row
-                            refInstance.update(refAnn.tableName(), fld.getType())
-                                    .value(fldVal)
-                                    .where("_id = ?", colId)
-                                    .run();
-                        } else {
-                            // Field is null, remove reference row
-                            refInstance.deleteFrom(refAnn.tableName(), fld.getType())
-                                    .where("_id = ?", colId)
-                                    .run();
-                        }
-                    } else if (fldVal != null) {
-                        // Insert field value into the reference table, the current class field will hold a reference _id
-                        Long[] ids = refInstance
-                                .insertInto(refAnn.tableName(), fld.getType())
-                                .value(fldVal)
-                                .run();
-                        if (ids != null && ids.length > 0)
-                            id = ids[0];
-                        setIdField(fldVal, idField, id);
-                        vals.put(selectColumnName(refAnn, fld), id);
-                    }
-
-                    refInstance.destroyInstance();
                     continue;
                 }
 
@@ -517,7 +448,7 @@ class ClassRowConverter {
                 } else if (fldVal instanceof Serializable) {
                     vals.put(columnName, serializeObject(fldVal));
                 } else {
-                    throw new IllegalStateException(String.format("Class %s should be marked as Serializable, or field %s should use the @Reference annotation instead of @Column.",
+                    throw new IllegalStateException(String.format("Class %s should be marked as Serializable, or field %s should use the @ForeignKey annotation instead of @Column.",
                             fldType.getName(), fld.getName()));
                 }
             }

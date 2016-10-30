@@ -1,6 +1,7 @@
 package com.afollestad.inquirysample;
 
 import com.afollestad.inquiry.annotations.Column;
+import com.afollestad.inquiry.annotations.ForeignKey;
 
 /**
  * @author Aidan Follestad (afollestad)
@@ -24,5 +25,9 @@ public class Exercise {
     public String name;
     @Column
     public String instructions;
+
     public Skill skill;
+
+    @ForeignKey(tableName = "people", foreignColumnName = "exerciseId", inverseFieldName = "exercise")
+    public Creator creator;
 }
