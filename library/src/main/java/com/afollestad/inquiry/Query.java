@@ -426,54 +426,65 @@ public final class Query<RowType, RunReturn> {
                 return (RunReturn) (Long) 0L;
             }
         }
+
         final ContentResolver cr = mInquiry.mContext.getContentResolver();
         final List<Field> clsFields = ClassRowConverter.getAllFields(mRowClass);
-        switch (mQueryType) {
-            case INSERT:
-                Field idField = mInquiry.getIdField(mRowClass);
-                Long[] insertedIds = new Long[mValues.length];
-                if (mDatabase != null) {
-                    for (int i = 0; i < mValues.length; i++) {
-                        final RowType row = mValues[i];
-                        insertedIds[i] = mDatabase.insert(ClassRowConverter.clsToVals(this, row, null, clsFields, false));
-                        ClassRowConverter.setIdField(row, idField, insertedIds[i]);
-                    }
-                } else if (mContentUri != null) {
-                    for (int i = 0; i < mValues.length; i++) {
-                        final RowType row = mValues[i];
-                        final Uri uri = cr.insert(mContentUri, ClassRowConverter.clsToVals(this, row, null, clsFields, false));
-                        if (uri == null) return (RunReturn) (Long) (-1L);
-                        insertedIds[i] = Long.parseLong(uri.getLastPathSegment());
-                        ClassRowConverter.setIdField(row, idField, insertedIds[i]);
-                    }
-                } else
-                    throw new IllegalStateException("Database helper was null.");
-                postRun(false);
-                close();
-                return (RunReturn) insertedIds;
-            case UPDATE: {
-                ContentValues values = ClassRowConverter.clsToVals(this, mValues[mValues.length - 1], mProjection, clsFields, true);
-                if (mDatabase != null) {
-                    RunReturn value = (RunReturn) (Integer) mDatabase.update(values, getWhere(), getWhereArgs());
-                    postRun(true);
-                    close();
-                    return value;
-                } else if (mContentUri != null)
-                    return (RunReturn) (Integer) cr.update(mContentUri, values, getWhere(), getWhereArgs());
-                else
-                    throw new IllegalStateException("Database helper was null.");
+        if (mDatabase != null)
+            mDatabase.beginTransaction();
+
+        try {
+            switch (mQueryType) {
+                case INSERT:
+                    Field idField = mInquiry.getIdField(mRowClass);
+                    Long[] insertedIds = new Long[mValues.length];
+                    if (mDatabase != null) {
+                        for (int i = 0; i < mValues.length; i++) {
+                            final RowType row = mValues[i];
+                            insertedIds[i] = mDatabase.insert(ClassRowConverter.clsToVals(this, row, null, clsFields, false));
+                            ClassRowConverter.setIdField(row, idField, insertedIds[i]);
+                        }
+                    } else if (mContentUri != null) {
+                        for (int i = 0; i < mValues.length; i++) {
+                            final RowType row = mValues[i];
+                            final Uri uri = cr.insert(mContentUri, ClassRowConverter.clsToVals(this, row, null, clsFields, false));
+                            if (uri == null) return (RunReturn) (Long) (-1L);
+                            insertedIds[i] = Long.parseLong(uri.getLastPathSegment());
+                            ClassRowConverter.setIdField(row, idField, insertedIds[i]);
+                        }
+                    } else
+                        throw new IllegalStateException("Database helper was null.");
+                    postRun(false);
+                    if (mDatabase != null)
+                        mDatabase.saveTransaction();
+                    return (RunReturn) insertedIds;
+                case UPDATE: {
+                    ContentValues values = ClassRowConverter.clsToVals(this, mValues[mValues.length - 1], mProjection, clsFields, true);
+                    if (mDatabase != null) {
+                        RunReturn value = (RunReturn) (Integer) mDatabase.update(values, getWhere(), getWhereArgs());
+                        postRun(true);
+                        mDatabase.saveTransaction();
+                        return value;
+                    } else if (mContentUri != null)
+                        return (RunReturn) (Integer) cr.update(mContentUri, values, getWhere(), getWhereArgs());
+                    else
+                        throw new IllegalStateException("Database helper was null.");
+                }
+                case DELETE: {
+                    if (mDatabase != null) {
+                        traverseDelete();
+                        RunReturn value = (RunReturn) (Integer) mDatabase.delete(getWhere(), getWhereArgs());
+                        mDatabase.saveTransaction();
+                        return value;
+                    } else if (mContentUri != null)
+                        return (RunReturn) (Integer) cr.delete(mContentUri, getWhere(), getWhereArgs());
+                    else
+                        throw new IllegalStateException("Database helper was null.");
+                }
             }
-            case DELETE: {
-                if (mDatabase != null) {
-                    traverseDelete();
-                    RunReturn value = (RunReturn) (Integer) mDatabase.delete(getWhere(), getWhereArgs());
-                    close();
-                    return value;
-                } else if (mContentUri != null)
-                    return (RunReturn) (Integer) cr.delete(mContentUri, getWhere(), getWhereArgs());
-                else
-                    throw new IllegalStateException("Database helper was null.");
-            }
+        } catch (Throwable t) {
+            Utils.wrapInReIfNeccessary(t);
+        } finally {
+            close();
         }
         return null;
     }
@@ -516,7 +527,7 @@ public final class Query<RowType, RunReturn> {
                                 .run();
                         fkInstance.destroyInstance();
                     } catch (Throwable t) {
-                        throw new RuntimeException(t);
+                        Utils.wrapInReIfNeccessary(t);
                     }
                 }
             }
@@ -609,11 +620,15 @@ public final class Query<RowType, RunReturn> {
 
             fkInstance.destroyInstance();
         } catch (Throwable t) {
-            throw new RuntimeException(t);
+            Utils.wrapInReIfNeccessary(t);
         }
     }
 
     public void close() {
-        if (mDatabase != null) mDatabase.close();
+        if (mDatabase != null) {
+            if (mQueryType != SELECT)
+                mDatabase.endTransaction();
+            mDatabase.close();
+        }
     }
 }

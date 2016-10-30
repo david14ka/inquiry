@@ -296,7 +296,7 @@ class ClassRowConverter {
                 throw new IllegalStateException(String.format("No field found in %s for column %s (of type %s)",
                         cls.getName(), columnName, DataType.name(columnType)));
             } catch (Exception e) {
-                throw new RuntimeException(e);
+                Utils.wrapInReIfNeccessary(e);
             }
         }
 
@@ -307,7 +307,7 @@ class ClassRowConverter {
                     //noinspection WrongConstant
                     loadFieldIntoRow(query, cursor, fld, row, columnIndex, -1);
                 } catch (Throwable t) {
-                    throw new RuntimeException(t);
+                    Utils.wrapInReIfNeccessary(t);
                 }
             }
         }
@@ -343,7 +343,7 @@ class ClassRowConverter {
             try {
                 idField.setLong(val, id);
             } catch (Exception e) {
-                throw new RuntimeException("Failed to set _id field of row.");
+                throw new IllegalStateException("Failed to set _id field of row.", e);
             }
         }
     }
@@ -457,7 +457,8 @@ class ClassRowConverter {
                 throw new IllegalStateException("Class " + row.getClass().getName() + " has no column fields.");
             return vals;
         } catch (Throwable t) {
-            throw new RuntimeException(t);
+            Utils.wrapInReIfNeccessary(t);
+            return null;
         }
     }
 

@@ -20,7 +20,7 @@ class SQLiteHelper extends SQLiteOpenHelper {
                 final String createStatement = String.format("CREATE TABLE IF NOT EXISTS %s (%s);", table, columns);
                 getWritableDatabase().execSQL(createStatement);
             } catch (Exception e) {
-                throw new RuntimeException(e);
+                Utils.wrapInReIfNeccessary(e);
             }
         }
     }

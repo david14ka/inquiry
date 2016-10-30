@@ -163,7 +163,7 @@ public final class Inquiry {
                 .handler(instance.mHandler)
                 .databaseVersion(instance.mDatabaseVersion)
                 .instanceName(newInstanceName)
-                .build();
+                .build(persist);
     }
 
     @CheckResult

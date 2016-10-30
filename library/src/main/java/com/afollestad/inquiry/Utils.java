@@ -25,8 +25,7 @@ class Utils {
         try {
             return (T) ctor.newInstance();
         } catch (Throwable t) {
-            t.printStackTrace();
-            throw new RuntimeException("Failed to instantiate " + cls.getName() + ": " + t.getLocalizedMessage());
+            throw new RuntimeException("Failed to instantiate " + cls.getName(), t);
         }
     }
 
@@ -129,6 +128,14 @@ class Utils {
             }
         } else {
             return field.getType();
+        }
+    }
+
+    public static void wrapInReIfNeccessary(Throwable t) throws RuntimeException {
+        if (t instanceof RuntimeException) {
+            throw (RuntimeException) t;
+        } else {
+            throw new RuntimeException(t);
         }
     }
 }
