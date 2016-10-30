@@ -468,7 +468,7 @@ Integer deletedCount = Inquiry.get(this)
     .run();
 ```
 
-The above code results in any rows with their age column set to *20* removed. If you didn't
+The above code results in any rows with their age column set to *21* removed. If you didn't
 specify `where()` args, every row in the table would be deleted.
 
 ---
@@ -562,8 +562,6 @@ In addition to using a `List` with the `@ForeignKey` annotation, you can also us
 way as Lists. The only difference being that you can't dynamically add or remove objects from an array without
 reconstructing them.
 
-![ForeignKeyChart1](https://raw.githubusercontent.com/afollestad/inquiry/master/art/foreignkeysingles.png)
-
 ```java
 public class Person {
 
@@ -582,6 +580,9 @@ public class Person {
 
 You can even use single object instances with `@ForeignKey`, which will reference and keep track of
 one single row in a foreign table rather than a collection.
+
+
+![ForeignKeyChart1](https://raw.githubusercontent.com/afollestad/inquiry/master/art/foreignkeysingles.png)
 
 ```java
 public class Person {
