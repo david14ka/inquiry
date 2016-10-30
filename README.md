@@ -41,6 +41,7 @@ dependencies {
     3. [Combining Where Statements](https://github.com/afollestad/inquiry#combining-where-statements)
     4. [Projection](https://github.com/afollestad/inquiry#projection)
     5. [Sorting and Limiting](https://github.com/afollestad/inquiry#sorting-and-limiting)
+    6. [Any and None Predicates](https://github.com/afollestad/inquiry#any-and-none-predicates)
 6. [Inserting Rows](https://github.com/afollestad/inquiry#inserting-rows)
 7. [Updating Rows](https://github.com/afollestad/inquiry#updating-rows)
     1. [Basics](https://github.com/afollestad/inquiry#basics-1)
@@ -445,6 +446,48 @@ If you prefer using a full SQL string for sorting, you can:
 
 ```
 .sort("name DESC, rank DESC, age ASC")
+```
+
+---
+
+### Any and None Predicates
+
+These simple methods allow you to check various conditions on returned objects. It's recommended that
+you enable the Jack compiler and Java 8 in your projects to take advantage of the clean syntax shown
+here.
+
+The `any()` predicate can be used with no parameter, which will return true if there were any rows returned at all.
+
+```java
+boolean anythingReturned = Inquiry.get(this)
+    .selectFrom("idk_table", Row.class)
+    .any();
+```
+
+You can add a predicate parameter too. In the block below, `any()` returns true **if** any rows have a
+name matching "Aidan".
+
+```java
+boolean aidanReturned = Inquiry.get(this)
+    .selectFrom("idk_table", Row.class)
+    .any(it -> it.name.equals("Aidan"));
+```
+
+`none()` does the opposite, obviously. Here, it will return true if no rows were returned.
+
+```java
+boolean nothingReturned = Inquiry.get(this)
+    .selectFrom("idk_table", Keyboard.Row.class)
+    .none();
+```
+
+You can again add a predicate parameter. Here it returns true **if** no rows returned have a name
+matching "Aidan".
+
+```java
+boolean aidanNotReturned = Inquiry.get(this)
+    .selectFrom("idk_table", Keyboard.Row.class)
+    .none(it -> it.name.equals("Aidan"));
 ```
 
 # Inserting Rows
