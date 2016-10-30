@@ -33,8 +33,7 @@ dependencies {
 1. [Quick Setup](https://github.com/afollestad/inquiry#quick-setup)
 2. [Instances](https://github.com/afollestad/inquiry#instances)
 3. [Row Objects](https://github.com/afollestad/inquiry#row-objects)
-4. [Foreign Key Annotation](https://github.com/afollestad/inquiry#foreign-key-annotation)
-5. [Querying Rows](https://github.com/afollestad/inquiry#querying-rows)
+4. [Querying Rows](https://github.com/afollestad/inquiry#querying-rows)
     1. [Basics](https://github.com/afollestad/inquiry#basics)
     2. [Where](https://github.com/afollestad/inquiry#where)
     2. [Where In and Where Not In](https://github.com/afollestad/inquiry#where-in-and-where-not-in)
@@ -42,12 +41,13 @@ dependencies {
     4. [Projection](https://github.com/afollestad/inquiry#projection)
     5. [Sorting and Limiting](https://github.com/afollestad/inquiry#sorting-and-limiting)
     6. [Any and None Predicates](https://github.com/afollestad/inquiry#any-and-none-predicates)
-6. [Inserting Rows](https://github.com/afollestad/inquiry#inserting-rows)
-7. [Updating Rows](https://github.com/afollestad/inquiry#updating-rows)
+5. [Inserting Rows](https://github.com/afollestad/inquiry#inserting-rows)
+6. [Updating Rows](https://github.com/afollestad/inquiry#updating-rows)
     1. [Basics](https://github.com/afollestad/inquiry#basics-1)
     2. [Projection](https://github.com/afollestad/inquiry#projection-1)
-8. [Deleting Rows](https://github.com/afollestad/inquiry#deleting-rows)
-9. [Dropping Tables](https://github.com/afollestad/inquiry#dropping-tables)
+7. [Deleting Rows](https://github.com/afollestad/inquiry#deleting-rows)
+8. [Dropping Tables](https://github.com/afollestad/inquiry#dropping-tables)
+9. [Foreign Key Annotation](https://github.com/afollestad/inquiry#foreign-key-annotation)
 10. [Extra: Accessing Content Providers](https://github.com/afollestad/inquiry#extra-accessing-content-providers)
     1. [Setup](https://github.com/afollestad/inquiry#setup)
     2. [Basics](https://github.com/afollestad/inquiry#basics-2)
@@ -154,117 +154,6 @@ table can have the same value for that specific column. This is commonly used wi
 * `autoIncrement` indicates that you don't manually set the value of this column. Every time
 you insert a row into the table, this column will be incremented by one automatically. This can
 only be used with INTEGER columns (short, int, or long fields), however.
-
----
-
-# ForeignKey Annotation
-
-![ForeignKeyChart1](https://raw.githubusercontent.com/afollestad/inquiry/master/art/foreignkeyarraylist.png)
-
-Inquiry provides a special annotation called `@ForeignKey`. It allows you to specify relationships between
-a table and another. Take the example below. `Person` is a parent class, it has a `List<>` of `Child`
-objects.
-
-```java
-public class Person {
-
-    public Person() {
-        // Default constructor is needed so Inquiry can auto construct instances
-    }
-
-    public Person(String name) {
-        this.name = name;
-    }
-
-    @Column(name = "_id", primaryKey = true, notNull = true, autoIncrement = true)
-    public long id;
-    @Column
-    public String name;
-
-    // inverseFieldName is optional, here it refers to the "parent" field in Child class which gets set to a reference to this Person
-    @ForeignKey(tableName = "children", foreignColumnName = "parentId", inverseFieldName = "parent")
-    public List<Child> children;
-}
-
-public class Child {
-
-    public Child() {
-        // Default constructor is needed so Inquiry can auto construct instances
-    }
-
-    @Column(name = "_id", primaryKey = true, notNull = true, autoIncrement = true)
-    public long id;
-    @Column
-    public String name;
-    @Column
-    public long parentId;
-
-    public Person parent;
-}
-```
-
-Since `inverseFieldName` is set to point to the "parent" field in `Child`, `parent` will be set to a reference
-of the `Person` object during queries.
-
-**During insertion**, Inquiry will first insert the parent `Person` object. Its `_id` field will be
-populated to the new row ID. It will then loop through `Child` objects inside of the `children` ArrayList,
-and insert each object. The `parentId` of each child will be set to the `_id` of the parent object.
-
-**During querying**, the parent object will be retrieved first. It will then retrieve all children which
-have a `parentId` matching the parent object and populate the `children` ArrayList.
-
-**During updating**, the parent object will be updated first. It will then update each child which is
-present in the `children` ArrayList. Any rows in the foreign table that are *no longer* in the `children`
-List will be deleted (which have a `parentId` matching the `_id` of the parent object).
-
-**During deletion**, all children with a `parentId` matching the `_id` of the parent object will be deleted, followed
-by the parent object.
-
-Note that you are not limited to one level of foreign children. Foreign children can also have their own
-foreign children, which are all managed by the library.
-
----
-
-In addition to using a `List` with the `@ForeignKey` annotation, you can also use arrays, which behave the same
-way as Lists. The only difference being that you can't dynamically add or remove objects from an array without
-reconstructing them.
-
-![ForeignKeyChart1](https://raw.githubusercontent.com/afollestad/inquiry/master/art/foreignkeysingles.png)
-
-```java
-public class Person {
-
-    public Person() {
-        // Default constructor is needed so Inquiry can auto construct instances
-    }
-
-    @Column(name = "_id", primaryKey = true, notNull = true, autoIncrement = true)
-    public long id;
-
-    // inverseFieldName is optional, here it refers to the "parent" field in Child class which gets set to a reference to this Person
-    @ForeignKey(tableName = "children", foreignColumnName = "parentId", inverseFieldName = "parent")
-    public Child[] children;
-}
-```
-
-You can even use single object instances with `@ForeignKey`, which will reference and keep track of
-one single row in a foreign table rather than a collection.
-
-```java
-public class Person {
-
-    public Person() {
-        // Default constructor is needed so Inquiry can auto construct instances
-    }
-
-    @Column(name = "_id", primaryKey = true, notNull = true, autoIncrement = true)
-    public long id;
-
-    // inverseFieldName is optional, here it refers to the "parent" field in Child class which gets set to a reference to this Person
-    @ForeignKey(tableName = "children", foreignColumnName = "parentId", inverseFieldName = "parent")
-    public Child child;
-}
-```
 
 ---
 
@@ -597,6 +486,118 @@ Inquiry.get(this)
 ```
 
 Just pass table name, and it's gone.
+
+---
+
+# ForeignKey Annotation
+
+![ForeignKeyChart1](https://raw.githubusercontent.com/afollestad/inquiry/master/art/foreignkeyarraylist.png)
+
+Inquiry provides a special annotation called `@ForeignKey`. It allows you to specify relationships between
+a table and another. Take the example below. `Person` is a parent class, it has a `List<>` of `Child`
+objects.
+
+```java
+public class Person {
+
+    public Person() {
+        // Default constructor is needed so Inquiry can auto construct instances
+    }
+
+    public Person(String name) {
+        this.name = name;
+    }
+
+    @Column(name = "_id", primaryKey = true, notNull = true, autoIncrement = true)
+    public long id;
+    @Column
+    public String name;
+
+    // inverseFieldName is optional, here it refers to the "parent" field in Child class which gets set to a reference to this Person
+    @ForeignKey(tableName = "children", foreignColumnName = "parentId", inverseFieldName = "parent")
+    public List<Child> children;
+}
+
+public class Child {
+
+    public Child() {
+        // Default constructor is needed so Inquiry can auto construct instances
+    }
+
+    @Column(name = "_id", primaryKey = true, notNull = true, autoIncrement = true)
+    public long id;
+    @Column
+    public String name;
+    @Column
+    public long parentId;
+
+    public Person parent;
+}
+```
+
+Since `inverseFieldName` is set to point to the "parent" field in `Child`, `parent` will be set to a reference
+of the `Person` object during queries.
+
+**During insertion**, Inquiry will first insert the parent `Person` object. Its `_id` field will be
+populated to the new row ID. It will then loop through `Child` objects inside of the `children` ArrayList,
+and insert each object. The `parentId` of each child will be set to the `_id` of the parent object.
+
+**During querying**, the parent object will be retrieved first. It will then retrieve all children which
+have a `parentId` matching the parent object and populate the `children` ArrayList.
+
+**During updating**, the parent object will be updated first. It will then update each child which is
+present in the `children` ArrayList. Any rows in the foreign table that are *no longer* in the `children`
+List will be deleted (which have a `parentId` matching the `_id` of the parent object). Any new rows added
+to the `children` List will be inserted into the foreign table.
+
+**During deletion**, all children with a `parentId` matching the `_id` of the parent object will be deleted, followed
+by the parent object.
+
+Note that you are not limited to one level of foreign children. Foreign children can also have their own
+foreign children, which are all managed by the library.
+
+---
+
+In addition to using a `List` with the `@ForeignKey` annotation, you can also use arrays, which behave the same
+way as Lists. The only difference being that you can't dynamically add or remove objects from an array without
+reconstructing them.
+
+![ForeignKeyChart1](https://raw.githubusercontent.com/afollestad/inquiry/master/art/foreignkeysingles.png)
+
+```java
+public class Person {
+
+    public Person() {
+        // Default constructor is needed so Inquiry can auto construct instances
+    }
+
+    @Column(name = "_id", primaryKey = true, notNull = true, autoIncrement = true)
+    public long id;
+
+    // inverseFieldName is optional, here it refers to the "parent" field in Child class which gets set to a reference to this Person
+    @ForeignKey(tableName = "children", foreignColumnName = "parentId", inverseFieldName = "parent")
+    public Child[] children;
+}
+```
+
+You can even use single object instances with `@ForeignKey`, which will reference and keep track of
+one single row in a foreign table rather than a collection.
+
+```java
+public class Person {
+
+    public Person() {
+        // Default constructor is needed so Inquiry can auto construct instances
+    }
+
+    @Column(name = "_id", primaryKey = true, notNull = true, autoIncrement = true)
+    public long id;
+
+    // inverseFieldName is optional, here it refers to the "parent" field in Child class which gets set to a reference to this Person
+    @ForeignKey(tableName = "children", foreignColumnName = "parentId", inverseFieldName = "parent")
+    public Child child;
+}
+```
 
 ---
 

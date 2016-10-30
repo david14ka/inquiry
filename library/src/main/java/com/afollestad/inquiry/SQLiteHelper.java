@@ -37,6 +37,18 @@ class SQLiteHelper extends SQLiteOpenHelper {
         onCreate(db);
     }
 
+    public void beginTransaction() {
+        getWritableDatabase().beginTransaction();
+    }
+
+    public void saveTransaction() {
+        getWritableDatabase().setTransactionSuccessful();
+    }
+
+    public void endTransaction() {
+        getWritableDatabase().endTransaction();
+    }
+
     public final Cursor query(String[] projection, String selection,
                               String[] selectionArgs, String sortOrder) {
         return getReadableDatabase().query(mTableName, projection, selection, selectionArgs, null, null, sortOrder);
