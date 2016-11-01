@@ -16,7 +16,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        Inquiry.newInstance(this, null)
+        Inquiry.newInstance(this, "testDb")
                 .build();
         query();
     }
@@ -29,21 +29,33 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void query() {
-        Inquiry.get(this)
-                .selectFrom("rows", Row.class)
+        Inquiry.get(MainActivity.this)
+                .selectFrom("parents", Parent.class)
                 .all(result -> {
                     if (result == null || result.length == 0) {
                         insert();
                     } else {
                         Log.d("MainActivity", "Got " + result.length + " rows.");
+                        Log.d("MainActivity", "Parent 1 has " + result[0].children.size() + " children."); // Triggers lazy loading
                     }
                 });
     }
 
     private void insert() {
+        Parent parent1 = new Parent("Natalie");
+        parent1.children.add(new Child("Aidan"));
+        parent1.children.add(new Child("Olivia"));
+        parent1.children.add(new Child("Elijah"));
+        parent1.children.add(new Child("Seven"));
+        parent1.children.add(new Child("Rain"));
+
+        Parent parent2 = new Parent("Angela");
+        parent2.children.add(new Child("Dylan"));
+        parent2.children.add(new Child("Elias"));
+
         Inquiry.get(this)
-                .insertInto("rows", Row.class)
-                .values(new Row("Aidan"), new Row("Waverly"))
+                .insertInto("parents", Parent.class)
+                .values(parent1, parent2)
                 .run(changed -> query());
     }
 }

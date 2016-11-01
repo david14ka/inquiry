@@ -5,6 +5,8 @@ import android.support.annotation.IntRange;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
+import com.afollestad.inquiry.lazyloading.LazyLoaderList;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
@@ -97,6 +99,14 @@ class Utils {
         for (int i = 0; i < array.length; i++)
             result[i] = array[i] + "";
         return result;
+    }
+
+    public static boolean classExtendsLazyLoader(Class<?> cls) {
+        if (cls.equals(LazyLoaderList.class))
+            return true;
+        while (cls.getSuperclass() != null)
+            cls = cls.getSuperclass();
+        return cls.equals(LazyLoaderList.class);
     }
 
     public static boolean classImplementsList(Class<?> cls) {

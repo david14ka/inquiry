@@ -5,12 +5,12 @@ import com.afollestad.inquiry.annotations.Column;
 /**
  * @author Aidan Follestad (afollestad)
  */
-public class Row {
+public class Child {
 
-    public Row() {
+    public Child() {
     }
 
-    public Row(String name) {
+    public Child(String name) {
         this.name = name;
     }
 
@@ -18,9 +18,13 @@ public class Row {
     public long id;
     @Column
     public String name;
+    @Column
+    public long parentId;
+
+    public Parent parent;
 
     @Override
     public String toString() {
-        return id + ", " + name;
+        return id + ", " + name + ", child of " + parent.name;
     }
 }

@@ -9,19 +9,20 @@ import android.util.Log;
 
 class SQLiteHelper extends SQLiteOpenHelper {
 
-    private final String mTableName;
-
-    public SQLiteHelper(Context context, String databaseName, String table, String columns, int version) {
+    SQLiteHelper(Context context, String databaseName, int version) {
         super(context, databaseName, null, version);
-        mTableName = table;
-        if (mTableName != null && columns != null) {
-            getWritableDatabase(); // will invoke onUpgrade if necessary
-            try {
-                final String createStatement = String.format("CREATE TABLE IF NOT EXISTS %s (%s);", table, columns);
-                getWritableDatabase().execSQL(createStatement);
-            } catch (Exception e) {
-                Utils.wrapInReIfNeccessary(e);
-            }
+    }
+
+    private String lastTableName;
+
+    void createTableIfNecessary(String name, Class<?> rowCls) {
+        lastTableName = name;
+        try {
+            String columns = ClassRowConverter.getClassSchema(rowCls);
+            String createStatement = String.format("CREATE TABLE IF NOT EXISTS %s (%s);", name, columns);
+            getWritableDatabase().execSQL(createStatement);
+        } catch (Exception e) {
+            Utils.wrapInReIfNeccessary(e);
         }
     }
 
@@ -31,39 +32,27 @@ class SQLiteHelper extends SQLiteOpenHelper {
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        if (mTableName == null) return;
+        if (lastTableName == null) return;
         Log.w(SQLiteHelper.class.getName(), "Upgrading database from version " + oldVersion + " to " + newVersion + ", which will destroy all old data");
-        db.execSQL("DROP TABLE IF EXISTS " + mTableName);
+        db.execSQL("DROP TABLE IF EXISTS " + lastTableName);
         onCreate(db);
     }
 
-    public void beginTransaction() {
-        getWritableDatabase().beginTransaction();
-    }
-
-    public void saveTransaction() {
-        getWritableDatabase().setTransactionSuccessful();
-    }
-
-    public void endTransaction() {
-        getWritableDatabase().endTransaction();
-    }
-
-    public final Cursor query(String[] projection, String selection,
+    public final Cursor query(String tableName, String[] projection, String selection,
                               String[] selectionArgs, String sortOrder) {
-        return getReadableDatabase().query(mTableName, projection, selection, selectionArgs, null, null, sortOrder);
+        return getReadableDatabase().query(tableName, projection, selection, selectionArgs, null, null, sortOrder);
     }
 
-    public final long insert(ContentValues values) {
-        return getWritableDatabase().insert(mTableName, null, values);
+    public final long insert(String tableName, ContentValues values) {
+        return getWritableDatabase().insert(tableName, null, values);
     }
 
-    public final int delete(String selection, String[] selectionArgs) {
+    public final int delete(String tableName, String selection, String[] selectionArgs) {
         if (selection == null) selection = "1";
-        return getWritableDatabase().delete(mTableName, selection, selectionArgs);
+        return getWritableDatabase().delete(tableName, selection, selectionArgs);
     }
 
-    public final int update(ContentValues values, String selection, String[] selectionArgs) {
-        return getWritableDatabase().update(mTableName, values, selection, selectionArgs);
+    public final int update(String tableName, ContentValues values, String selection, String[] selectionArgs) {
+        return getWritableDatabase().update(tableName, values, selection, selectionArgs);
     }
 }

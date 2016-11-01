@@ -45,6 +45,15 @@ public final class Inquiry {
     private int mDatabaseVersion = 1;
     private String mInstanceName;
 
+    private SQLiteHelper mDatabase;
+
+    public SQLiteHelper getDatabase() {
+        if (mDatabase == null && mDatabaseName != null) {
+            mDatabase = new SQLiteHelper(mContext, mDatabaseName, mDatabaseVersion);
+        }
+        return mDatabase;
+    }
+
     private Inquiry(@NonNull Context context) {
         //noinspection ConstantConditions
         if (context == null)
@@ -172,7 +181,15 @@ public final class Inquiry {
         return copy(instance, getInstanceName(newContext), persist);
     }
 
+    public boolean isDestroyed() {
+        return mContext == null;
+    }
+
     public void destroyInstance() {
+        if (mDatabase != null) {
+            mDatabase.close();
+            mDatabase = null;
+        }
         if (mIdFieldCache != null) {
             mIdFieldCache.clear();
             mIdFieldCache = null;
@@ -204,7 +221,7 @@ public final class Inquiry {
     }
 
     public void dropTable(@NonNull String tableName) {
-        final SQLiteDatabase db = new SQLiteHelper(mContext, mDatabaseName, null, null, mDatabaseVersion).getWritableDatabase();
+        final SQLiteDatabase db = new SQLiteHelper(mContext, mDatabaseName, mDatabaseVersion).getWritableDatabase();
         db.execSQL("DROP TABLE IF EXISTS " + tableName);
         db.close();
     }
@@ -226,7 +243,7 @@ public final class Inquiry {
     @CheckResult
     @NonNull
     public <RowType> Query<RowType, Integer> selectFrom(@NonNull String table, @NonNull Class<RowType> rowType) {
-        return new Query<>(this, table, Query.SELECT, rowType, mDatabaseVersion);
+        return new Query<>(this, table, Query.SELECT, rowType);
     }
 
     @CheckResult
@@ -238,7 +255,7 @@ public final class Inquiry {
     @CheckResult
     @NonNull
     public <RowType> Query<RowType, Long[]> insertInto(@NonNull String table, @NonNull Class<RowType> rowType) {
-        return new Query<>(this, table, Query.INSERT, rowType, mDatabaseVersion);
+        return new Query<>(this, table, Query.INSERT, rowType);
     }
 
     @CheckResult
@@ -250,7 +267,7 @@ public final class Inquiry {
     @CheckResult
     @NonNull
     public <RowType> Query<RowType, Integer> update(@NonNull String table, @NonNull Class<RowType> rowType) {
-        return new Query<>(this, table, Query.UPDATE, rowType, mDatabaseVersion);
+        return new Query<>(this, table, Query.UPDATE, rowType);
     }
 
     @CheckResult
@@ -262,7 +279,7 @@ public final class Inquiry {
     @CheckResult
     @NonNull
     public <RowType> Query<RowType, Integer> deleteFrom(@NonNull String table, @NonNull Class<RowType> rowType) {
-        return new Query<>(this, table, Query.DELETE, rowType, mDatabaseVersion);
+        return new Query<>(this, table, Query.DELETE, rowType);
     }
 
     @CheckResult

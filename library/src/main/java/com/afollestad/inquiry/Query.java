@@ -14,6 +14,7 @@ import android.support.annotation.Nullable;
 import com.afollestad.inquiry.annotations.ForeignKey;
 import com.afollestad.inquiry.callbacks.GetCallback;
 import com.afollestad.inquiry.callbacks.RunCallback;
+import com.afollestad.inquiry.lazyloading.LazyLoaderList;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -44,10 +45,9 @@ public final class Query<RowType, RunReturn> {
 
     protected final Inquiry mInquiry;
     private Uri mContentUri;
+    private String mTableName;
     @Nullable
     private final Class<RowType> mRowClass;
-    @Nullable
-    private SQLiteHelper mDatabase;
 
     @QueryType
     private final int mQueryType;
@@ -69,14 +69,14 @@ public final class Query<RowType, RunReturn> {
         mRowClass = mClass;
     }
 
-    protected Query(@NonNull Inquiry inquiry, @NonNull String tableName, @QueryType int type, @Nullable Class<RowType> mClass, int databaseVersion) {
+    protected Query(@NonNull Inquiry inquiry, @NonNull String tableName, @QueryType int type, @Nullable Class<RowType> mClass) {
         mInquiry = inquiry;
         mQueryType = type;
         mRowClass = mClass;
+        mTableName = tableName;
         if (inquiry.mDatabaseName == null)
             throw new IllegalStateException("Inquiry was not initialized with a database name, it can only use content providers in this configuration.");
-        mDatabase = new SQLiteHelper(inquiry.mContext, inquiry.mDatabaseName,
-                tableName, ClassRowConverter.getClassSchema(mClass), databaseVersion);
+        inquiry.getDatabase().createTableIfNecessary(tableName, mClass);
     }
 
     private void appendWhere(String statement, String[] args, boolean or) {
@@ -115,8 +115,11 @@ public final class Query<RowType, RunReturn> {
         if (mContentUri != null) {
             cursor = mInquiry.mContext.getContentResolver().query(mContentUri, null, getWhere(), getWhereArgs(), null);
         } else {
-            if (mDatabase == null) throw new IllegalStateException("Database helper was null.");
-            cursor = mDatabase.query(null, getWhere(), getWhereArgs(), null);
+            if (mInquiry.getDatabase() == null)
+                throw new IllegalStateException("Database helper was null.");
+            else if (mTableName == null)
+                throw new IllegalStateException("Table name was null.");
+            cursor = mInquiry.getDatabase().query(mTableName, null, getWhere(), getWhereArgs(), null);
         }
         if (cursor != null) {
             if (position < 0 || position >= cursor.getCount()) {
@@ -319,8 +322,11 @@ public final class Query<RowType, RunReturn> {
         if (mContentUri != null) {
             cursor = mInquiry.mContext.getContentResolver().query(mContentUri, mProjection, getWhere(), getWhereArgs(), sort);
         } else {
-            if (mDatabase == null) throw new IllegalStateException("Database helper was null.");
-            cursor = mDatabase.query(mProjection, getWhere(), getWhereArgs(), sort);
+            if (mInquiry.getDatabase() == null)
+                throw new IllegalStateException("Database helper was null.");
+            else if (mTableName == null)
+                throw new IllegalStateException("Table name was null.");
+            cursor = mInquiry.getDatabase().query(mTableName, mProjection, getWhere(), getWhereArgs(), sort);
         }
 
         if (cursor != null) {
@@ -334,11 +340,8 @@ public final class Query<RowType, RunReturn> {
                 }
             }
             cursor.close();
-            close();
             return results;
         }
-
-        close();
         return null;
     }
 
@@ -429,40 +432,84 @@ public final class Query<RowType, RunReturn> {
 
         final ContentResolver cr = mInquiry.mContext.getContentResolver();
         final List<Field> clsFields = ClassRowConverter.getAllFields(mRowClass);
-        if (mDatabase != null)
-            mDatabase.beginTransaction();
+        if (mTableName == null)
+            throw new IllegalStateException("The table name cannot be null.");
+        Field rowIdField = mInquiry.getIdField(mRowClass);
 
         try {
             switch (mQueryType) {
                 case INSERT:
-                    Field idField = mInquiry.getIdField(mRowClass);
                     Long[] insertedIds = new Long[mValues.length];
-                    if (mDatabase != null) {
+                    if (mInquiry.getDatabase() != null) {
                         for (int i = 0; i < mValues.length; i++) {
                             final RowType row = mValues[i];
-                            insertedIds[i] = mDatabase.insert(ClassRowConverter.clsToVals(this, row, null, clsFields, false));
-                            ClassRowConverter.setIdField(row, idField, insertedIds[i]);
+                            if (row == null) continue;
+                            insertedIds[i] = mInquiry.getDatabase().insert(mTableName, ClassRowConverter.clsToVals(this, row, null, clsFields, false));
+                            ClassRowConverter.setIdField(row, rowIdField, insertedIds[i]);
                         }
                     } else if (mContentUri != null) {
                         for (int i = 0; i < mValues.length; i++) {
                             final RowType row = mValues[i];
+                            if (row == null) continue;
                             final Uri uri = cr.insert(mContentUri, ClassRowConverter.clsToVals(this, row, null, clsFields, false));
                             if (uri == null) return (RunReturn) (Long) (-1L);
                             insertedIds[i] = Long.parseLong(uri.getLastPathSegment());
-                            ClassRowConverter.setIdField(row, idField, insertedIds[i]);
+                            ClassRowConverter.setIdField(row, rowIdField, insertedIds[i]);
                         }
                     } else
                         throw new IllegalStateException("Database helper was null.");
                     postRun(false);
-                    if (mDatabase != null)
-                        mDatabase.saveTransaction();
                     return (RunReturn) insertedIds;
                 case UPDATE: {
-                    ContentValues values = ClassRowConverter.clsToVals(this, mValues[mValues.length - 1], mProjection, clsFields, true);
-                    if (mDatabase != null) {
-                        RunReturn value = (RunReturn) (Integer) mDatabase.update(values, getWhere(), getWhereArgs());
+                    boolean allHaveIds = rowIdField != null;
+                    if (rowIdField != null && mValues != null) {
+                        for (RowType mValue : mValues) {
+                            if (mValue == null) continue;
+                            long id = ClassRowConverter.getRowId(mValue, rowIdField);
+                            if (id <= 0) {
+                                allHaveIds = false;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (allHaveIds) {
+                        // We want to update each object as themselves
+                        if (getWhere() != null && !getWhere().trim().isEmpty()) {
+                            throw new IllegalStateException("You want to update rows which have IDs, but specified a where statement.");
+                        }
+
+                        int updatedCount = 0;
+                        for (RowType row : mValues) {
+                            if (row == null) continue;
+                            long rowId = ClassRowConverter.getRowId(row, rowIdField);
+                            ContentValues values = ClassRowConverter.clsToVals(this, row, mProjection, clsFields, true);
+                            if (mInquiry.getDatabase() != null) {
+                                updatedCount += mInquiry.getDatabase().update(mTableName, values, "_id = ?", new String[]{rowId + ""});
+                            } else if (mContentUri != null) {
+                                updatedCount += cr.update(mContentUri, values, "_id = ?", new String[]{rowId + ""});
+                            } else
+                                throw new IllegalStateException("Database helper was null.");
+                        }
+
                         postRun(true);
-                        mDatabase.saveTransaction();
+                        return (RunReturn) (Integer) updatedCount;
+                    }
+
+                    RowType firstNotNull = mValues[mValues.length - 1];
+                    if (firstNotNull == null) {
+                        for (int i = mValues.length - 2; i >= 0; i--) {
+                            firstNotNull = mValues[i];
+                            if (firstNotNull != null) break;
+                        }
+                    }
+                    if (firstNotNull == null)
+                        throw new IllegalStateException("No non-null values specified to update.");
+
+                    ContentValues values = ClassRowConverter.clsToVals(this, firstNotNull, mProjection, clsFields, true);
+                    if (mInquiry.getDatabase() != null) {
+                        RunReturn value = (RunReturn) (Integer) mInquiry.getDatabase().update(mTableName, values, getWhere(), getWhereArgs());
+                        postRun(true);
                         return value;
                     } else if (mContentUri != null)
                         return (RunReturn) (Integer) cr.update(mContentUri, values, getWhere(), getWhereArgs());
@@ -470,10 +517,35 @@ public final class Query<RowType, RunReturn> {
                         throw new IllegalStateException("Database helper was null.");
                 }
                 case DELETE: {
-                    if (mDatabase != null) {
+                    Long[] idsToDelete = null;
+                    if (rowIdField != null && mValues != null) {
+                        int nonNullFound = 0;
+                        idsToDelete = new Long[mValues.length];
+                        for (int i = 0; i < mValues.length; i++) {
+                            if (mValues[i] == null) continue;
+                            nonNullFound++;
+                            long id = ClassRowConverter.getRowId(mValues[i], rowIdField);
+                            idsToDelete[i] = id;
+                            if (id <= 0) {
+                                idsToDelete = null;
+                                break;
+                            }
+                        }
+                        if (nonNullFound == 0) idsToDelete = null;
+                    }
+
+                    if (idsToDelete != null) {
+                        // We want to update each object as themselves
+                        if (getWhere() != null && !getWhere().trim().isEmpty()) {
+                            throw new IllegalStateException("You want to delete rows which have IDs, but specified a where statement.");
+                        }
+                        //noinspection CheckResult,ConfusingArgumentToVarargsMethod
+                        whereIn("_id", idsToDelete);
+                    }
+
+                    if (mInquiry.getDatabase() != null) {
+                        RunReturn value = (RunReturn) (Integer) mInquiry.getDatabase().delete(mTableName, getWhere(), getWhereArgs());
                         traverseDelete();
-                        RunReturn value = (RunReturn) (Integer) mDatabase.delete(getWhere(), getWhereArgs());
-                        mDatabase.saveTransaction();
                         return value;
                     } else if (mContentUri != null)
                         return (RunReturn) (Integer) cr.delete(mContentUri, getWhere(), getWhereArgs());
@@ -483,8 +555,6 @@ public final class Query<RowType, RunReturn> {
             }
         } catch (Throwable t) {
             Utils.wrapInReIfNeccessary(t);
-        } finally {
-            close();
         }
         return null;
     }
@@ -546,6 +616,15 @@ public final class Query<RowType, RunReturn> {
         try {
             ForeignKey fkAnn = fld.getAnnotation(ForeignKey.class);
             Object fldVal = fld.get(row);
+
+            if (updateMode && Utils.classExtendsLazyLoader(fld.getType())) {
+                LazyLoaderList lazyLoader = (LazyLoaderList) fldVal;
+                if (!lazyLoader.didLazyLoad()) {
+                    // Lazy loading didn't happen, nothing was populated, so nothing changed
+                    return;
+                }
+            }
+
             Class<?> listGenericType = Utils.getGenericTypeOfField(fld);
             Field idField = mInquiry.getIdField(row.getClass());
             Field fkIdField = mInquiry.getIdField(listGenericType);
@@ -579,19 +658,11 @@ public final class Query<RowType, RunReturn> {
             if ((array != null && array.length > 0) || (list != null && list.size() > 0)) {
                 // Update foreign row columns with this row's ID
                 if (array != null) {
-                    for (Object child : array) {
+                    for (Object child : array)
                         ClassRowConverter.setIdField(child, fkField, rowId);
-                        long foreignObjectId = fkIdField.getLong(child);
-                        if (updateMode && foreignObjectId <= 0)
-                            throw new IllegalStateException("You can't update/delete foreign children when their ID is unset.");
-                    }
                 } else {
-                    for (int i = 0; i < list.size(); i++) {
+                    for (int i = 0; i < list.size(); i++)
                         ClassRowConverter.setIdField(list.get(i), fkField, rowId);
-                        long foreignObjectId = fkIdField.getLong(list.get(i));
-                        if (updateMode && foreignObjectId <= 0)
-                            throw new IllegalStateException("You can't update/delete foreign children when their ID is unset.");
-                    }
                 }
 
                 if (updateMode) {
@@ -621,14 +692,6 @@ public final class Query<RowType, RunReturn> {
             fkInstance.destroyInstance();
         } catch (Throwable t) {
             Utils.wrapInReIfNeccessary(t);
-        }
-    }
-
-    public void close() {
-        if (mDatabase != null) {
-            if (mQueryType != SELECT)
-                mDatabase.endTransaction();
-            mDatabase.close();
         }
     }
 }

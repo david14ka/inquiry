@@ -10,6 +10,7 @@ import android.util.Log;
 
 import com.afollestad.inquiry.annotations.Column;
 import com.afollestad.inquiry.annotations.ForeignKey;
+import com.afollestad.inquiry.lazyloading.LazyLoaderList;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -138,45 +139,89 @@ class ClassRowConverter {
         }
     }
 
+    /**
+     * @param inquiry           An Inquiry instance
+     * @param tableName         The name of the child table
+     * @param foreignColumnName The name of the column in the child which hooks it ot the parent
+     * @param inverseFieldName  The optional name of a field in the child class which gets set to the parent
+     * @param row               The DB row
+     * @param fieldType         The type of field in the parent class, used to check the return type of this method
+     * @param childType         The type of the child class
+     * @return object, array, or list depending on the fieldType
+     */
+    public static Object processForeignKey(@NonNull Inquiry inquiry, @NonNull String tableName, @NonNull String foreignColumnName,
+                                           @Nullable String inverseFieldName, @NonNull Object row, @Nullable Class<?> fieldType, @NonNull Class<?> childType) {
+        if (fieldType == null)
+            fieldType = List.class;
+
+        Field idField = inquiry.getIdField(row.getClass());
+        if (idField == null)
+            throw new IllegalStateException("You cannot use the @ForeignKey annotation on a field within a class that doesn't have an _id column.");
+        Inquiry fkInstance = Inquiry.copy(inquiry, "[@fk]:" + tableName + "//" + foreignColumnName, false);
+
+        long rowId = getRowId(row, idField);
+        Object[] vals = fkInstance
+                .selectFrom(tableName, childType)
+                .where(foreignColumnName + " = ?", rowId)
+                .all();
+
+        if (vals == null || vals.length == 0) {
+            if (Utils.classImplementsList(fieldType))
+                return new ArrayList(0);
+            else return null;
+        } else {
+            if (inverseFieldName != null && !inverseFieldName.isEmpty()) {
+                for (Object val : vals) {
+                    Field inverseField = getField(getAllFields(childType), inverseFieldName);
+                    if (inverseField == null)
+                        throw new IllegalStateException("Inverse field " + inverseFieldName + " not found in " + childType);
+                    try {
+                        inverseField.set(val, row);
+                    } catch (Throwable t) {
+                        Utils.wrapInReIfNeccessary(t);
+                        return null;
+                    }
+                }
+            }
+
+            fkInstance.destroyInstance();
+            if (Utils.classImplementsList(fieldType)) {
+                List list = new ArrayList(vals.length);
+                Collections.addAll(list, vals);
+                return list;
+            } else if (fieldType.isArray()) {
+                return vals;
+            } else {
+                return vals[0];
+            }
+        }
+    }
+
     private static void loadFieldIntoRow(Query query, Cursor cursor, Field field, Object row, int columnIndex, @DataType.TypeDef int columnType) throws Exception {
         Class<?> fieldType = field.getType();
 
         ForeignKey fkAnn = field.getAnnotation(ForeignKey.class);
         if (fkAnn != null) {
-            Field idField = query.mInquiry.getIdField(row.getClass());
-            if (idField == null)
-                throw new IllegalStateException("You cannot use the @ForeignKey annotation on a field within a class that doesn't have an _id column.");
-            Inquiry fkInstance = Inquiry.copy(query.mInquiry, "[@fk]:" + fkAnn.tableName() + "//" + fkAnn.foreignColumnName(), false);
-            Class<?> listGenericType = Utils.getGenericTypeOfField(field);
+            Class<?> childType = Utils.getGenericTypeOfField(field);
 
-            Object[] vals = fkInstance
-                    .selectFrom(fkAnn.tableName(), listGenericType)
-                    .where(fkAnn.foreignColumnName() + " = ?", idField.getLong(row))
-                    .all();
-            if (vals == null || vals.length == 0) {
-                if (Utils.classImplementsList(fieldType))
-                    field.set(row, new ArrayList(0));
-                else field.set(row, null);
-            } else {
-                if (!fkAnn.inverseFieldName().isEmpty()) {
-                    for (Object val : vals) {
-                        Field inverseField = getField(getAllFields(listGenericType), fkAnn.inverseFieldName());
-                        if (inverseField == null)
-                            throw new IllegalStateException("Inverse field " + fkAnn.inverseFieldName() + " not found in " + listGenericType);
-                        inverseField.set(val, row);
+            if (Utils.classExtendsLazyLoader(fieldType)) {
+                @SuppressWarnings("unchecked")
+                LazyLoaderList loader = new LazyLoaderList(query.mInquiry, fkAnn.tableName(), fkAnn.foreignColumnName(),
+                        fkAnn.inverseFieldName(), row, childType) {
+                    @SuppressWarnings("unchecked")
+                    @Override
+                    protected void _performLazyLoad() {
+                        this.items = (List) processForeignKey(this.inquiry, this.tableName, this.foreignColumnName,
+                                this.inverseFieldName, this.row, null, this.childType);
                     }
-                }
-                if (Utils.classImplementsList(fieldType)) {
-                    List list = new ArrayList(vals.length);
-                    Collections.addAll(list, vals);
-                    field.set(row, list);
-                } else if (fieldType.isArray()) {
-                    field.set(row, vals);
-                } else {
-                    field.set(row, vals[0]);
-                }
+                };
+                field.set(row, loader);
+                return;
             }
-            fkInstance.destroyInstance();
+
+            Object value = processForeignKey(query.mInquiry, fkAnn.tableName(), fkAnn.foreignColumnName(),
+                    fkAnn.inverseFieldName(), row, fieldType, childType);
+            field.set(row, value);
             return;
         }
 
@@ -338,12 +383,23 @@ class ClassRowConverter {
         return null;
     }
 
+    static long getRowId(@NonNull Object val, @Nullable Field idField) {
+        if (idField != null) {
+            try {
+                return idField.getLong(val);
+            } catch (Exception e) {
+                throw new IllegalStateException("Failed to get the value of the _id field of a row.", e);
+            }
+        }
+        return -1;
+    }
+
     static void setIdField(@NonNull Object val, @Nullable Field idField, long id) {
         if (idField != null) {
             try {
                 idField.setLong(val, id);
             } catch (Exception e) {
-                throw new IllegalStateException("Failed to set _id field of row.", e);
+                throw new IllegalStateException("Failed to set _id field of a row.", e);
             }
         }
     }
@@ -396,7 +452,7 @@ class ClassRowConverter {
                 if (projection != null && projection.length > 0) {
                     boolean skip = true;
                     for (String proj : projection) {
-                        if (proj != null && proj.equalsIgnoreCase(selectColumnName((Column) null, fld))) {
+                        if (proj != null && proj.equalsIgnoreCase(selectColumnName(null, fld))) {
                             skip = false;
                             break;
                         }

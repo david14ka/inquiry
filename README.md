@@ -22,7 +22,7 @@ Add this to your module's `build.gradle` file (make sure the version matches the
 ```gradle
 dependencies {
     // ... other dependencies
-    compile 'com.afollestad:inquiry:4.0.1'
+    compile 'com.afollestad:inquiry:4.1.0'
 }
 ```
 
@@ -45,10 +45,12 @@ dependencies {
 6. [Updating Rows](https://github.com/afollestad/inquiry#updating-rows)
     1. [Basics](https://github.com/afollestad/inquiry#basics-1)
     2. [Projection](https://github.com/afollestad/inquiry#projection-1)
+    3. [Updating Individual Row Objects](https://github.com/afollestad/inquiry#updating-individual-row-objects)
 7. [Deleting Rows](https://github.com/afollestad/inquiry#deleting-rows)
 8. [Dropping Tables](https://github.com/afollestad/inquiry#dropping-tables)
 9. [ForeignKey Annotation](https://github.com/afollestad/inquiry#foreignkey-annotation)
-10. [Extra: Accessing Content Providers](https://github.com/afollestad/inquiry#extra-accessing-content-providers)
+10. [Lazy Loading Children](https://github.com/afollestad/inquiry#lazy-loading-children)
+11. [Extra: Accessing Content Providers](https://github.com/afollestad/inquiry#extra-accessing-content-providers)
     1. [Setup](https://github.com/afollestad/inquiry#setup)
     2. [Basics](https://github.com/afollestad/inquiry#basics-2)
 
@@ -106,6 +108,9 @@ Inquiry.newInstance(this, "my_new_database")
     .instanceName("my_custom_instance")
     .build();
 ```
+
+It's **very** important that you `destroy()` instances when you are done with them. This closes the
+database lock and makes sure any memory references are cleaned up.
 
 ---
 
@@ -254,11 +259,12 @@ Here's basic usage of where-in:
 Person[] result = Inquiry.get(this)
     .selectFrom("people", Person.class)
     .whereIn("age", 19, 21)
+    .whereNotIn("age", 31, 34)
     .all();
 ```
 
-The query above will retrieve any rows where the age is equal to `19` *or* `21`. You can pass an array
-in place of `19, 21` too. **Note** that `whereIn` can be used with updating and deletion too.
+The query above will retrieve any rows where the age is equal to `19` *or* `21`, and *not equal* to `31` or `34`.
+You can pass an array in place of `19, 21` too. **Note** that `whereIn` can be used with updating and deletion too.
 
 ---
 
@@ -273,6 +279,7 @@ Person[] result = Inquiry.get(this)
     .where("age > 8")
     .where("age < 21")
     .orWhereIn("name", "Aidan", "Waverly")
+    .whereNotIn("name", "Natalie", "Lao")
     .all();
 ```
 
@@ -282,8 +289,7 @@ The above query translates to this where statement:
 SELECT * FROM people WHERE age > 8 AND age < 21 OR name IN ('Aidan', 'Waverly')
 ```
 
-It will retrieve all people in between ages 8 and 21, *or* anyone with the name Aidan or Waverly.
-`where()` and `whereIn()` both have variations that begin with `or`.
+`where()`, `whereIn()`, and `whereNotIn()` all have variations that begin with `or`.
 
 ---
 
@@ -456,6 +462,27 @@ Integer updatedCount = Inquiry.get(this)
 The above code will update any rows with their name equal to *"Aidan"*, however it will only modify
 the `age` and `rank` columns of the updated rows. The other columns will be left alone.
 
+---
+
+### Updating Individual Row Objects
+
+The examples above set values to multiple matching rows at the same time. Inquiry also makes it possible
+to updating multiple individual rows at the same time, each having their own separate values.
+
+```java
+Person one = // ... retrieve from a query
+Person two = // ... retrieve from a query
+
+Integer updatedCount = Inquiry.get(this)
+    .update("people", Person.class)
+    .values(one, two)
+    .run();
+```
+
+**The objects passed to `values()` must be already existing rows which have populated `_ids`.** Each
+row is updating in the database individually.
+
+
 # Deleting Rows
 
 Deletion is simple:
@@ -471,9 +498,24 @@ Integer deletedCount = Inquiry.get(this)
 The above code results in any rows with their age column set to *21* removed. If you didn't
 specify `where()` args, every row in the table would be deleted.
 
+Like querying, `atPosition(int)` can be used in place of `where(String)` to delete a specific row.
+
 ---
 
-Like querying, `atPosition(int)` can be used in place of `where(String)` to delete a specific row.
+You can also delete multiple individual rows from their objects:
+
+```java
+Person one = // ... retrieve from a query
+Person two = // ... retrieve from a query
+
+Integer deletedCount = Inquiry.get(this)
+    .deleteFrom("people", Person.class)
+    .values(one, two)
+    .run();
+```
+
+**The objects passed to `values()` must be already existing rows which have populated `_ids`.** Each
+row is deleted from the database individually.
 
 # Dropping Tables
 
@@ -599,6 +641,60 @@ public class Person {
     public Child child;
 }
 ```
+
+---
+
+# Lazy Loading Children
+
+Lazy loading is pretty common on mobile platforms. Think of how you would load profile pictures in the
+timeline of a social media client; they load as you scroll and the image views come into view, not all
+right up front. This is called lazy loading.
+
+Inquiry allows you to lazy load `@ForeignKey` children of parent objects. This can help performance in
+cases where your app may not need to use the children in some areas, but will in others. Take this example
+which uses Inquiry's specxial `LazyLoaderList` class.
+
+```java
+public class Parent {
+
+    public Parent() {
+        children = new LazyLoaderList<>();
+    }
+
+    @Column(name = "_id", primaryKey = true, autoIncrement = true, notNull = true)
+    public long id;
+    @Column
+    public String name;
+
+    @ForeignKey(tableName = "children", foreignColumnName = "parentId", inverseFieldName = "parent")
+    public LazyLoaderList<Child> children;
+}
+
+public class Child {
+
+    public Child() {
+    }
+
+    @Column(name = "_id", primaryKey = true, autoIncrement = true, notNull = true)
+    public long id;
+    @Column
+    public long parentId;
+
+    public Parent parent;
+}
+```
+
+The field which uses `LazyLoaderList<Child>` above is a lazily loaded list. `LazyLoaderList` is actually
+implementing Java's `List<>` interface in the background, so it can be used like a regular `ArrayList<>`.
+Note that it does include some utility methods such as `any(AnyPredicate)`, `none(AnyPredicate)`,
+`first(AnyPredicate)`, `last(AnyPredicate)`, etc.
+
+The difference when you use this instead of `ArrayList` is that the `children` won't actually be populated
+from the foreign table until you access the `LazyLoaderList` initially. That means if you don't use it
+at all, the query will never be made. This highly optimizes initial query performance, since the first query
+retrieves all `Parent`'s but doesn't have to retrieve each instances children right away, too.
+
+**NOTE**: the `LazyLoaderList` will only work if the `Parent` object is retrieved through a query before accessing it.
 
 ---
 
