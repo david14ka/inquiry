@@ -149,11 +149,11 @@ public class Person {
 ```
 
 Notice that the class is annotated with the `@Table` annotation. You must include that annotation on
-any class which represents the row of a table. You canm optionally specify a name in the annotation
+any class which represents the row of a table. You can optionally specify a name in the annotation
 arguments, just like you can with the `@Column` annotation. By default, the name of a `@Table` is
 the lowercase name of the class, plus an 's'.
 
-All the fields are annotated with the `@Column` annotation. If you have fields without that
+All the fields in the class are annotated with the `@Column` annotation. If you have fields without that
 annotation, they will be ignored by Inquiry.
 
 ---
