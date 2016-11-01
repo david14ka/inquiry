@@ -10,6 +10,7 @@ import android.util.Log;
 
 import com.afollestad.inquiry.annotations.Column;
 import com.afollestad.inquiry.annotations.ForeignKey;
+import com.afollestad.inquiry.annotations.Table;
 import com.afollestad.inquiry.lazyloading.LazyLoaderList;
 
 import java.io.ByteArrayInputStream;
@@ -106,6 +107,16 @@ class ClassRowConverter {
         if (colAnnotation.notNull())
             colName.append(" NOT NULL");
         return colName.toString();
+    }
+
+    static String getClassTable(Class<?> cls) {
+        Table tableAnn = cls.getAnnotation(Table.class);
+        if (tableAnn == null)
+            throw new IllegalArgumentException("Class " + cls.getName() + " does not use the @Table annotation.");
+        String name = tableAnn.name();
+        if (name.trim().isEmpty())
+            name = cls.getSimpleName().toLowerCase() + "s";
+        return name;
     }
 
     static String getClassSchema(Class<?> cls) {

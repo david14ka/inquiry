@@ -1,10 +1,12 @@
 package com.afollestad.inquirysample;
 
 import com.afollestad.inquiry.annotations.Column;
+import com.afollestad.inquiry.annotations.Table;
 
 /**
  * @author Aidan Follestad (afollestad)
  */
+@Table
 public class Child {
 
     public Child() {

@@ -16,7 +16,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        Inquiry.newInstance(this, "testDb")
+        Inquiry.newInstance(this, "testDb1")
                 .build();
         query();
     }
@@ -30,7 +30,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void query() {
         Inquiry.get(MainActivity.this)
-                .selectFrom("parents", Parent.class)
+                .select(Parent.class)
                 .all(result -> {
                     if (result == null || result.length == 0) {
                         insert();
@@ -54,7 +54,7 @@ public class MainActivity extends AppCompatActivity {
         parent2.children.add(new Child("Elias"));
 
         Inquiry.get(this)
-                .insertInto("parents", Parent.class)
+                .insert(Parent.class)
                 .values(parent1, parent2)
                 .run(changed -> query());
     }

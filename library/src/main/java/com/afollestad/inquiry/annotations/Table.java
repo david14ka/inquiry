@@ -9,14 +9,8 @@ import java.lang.annotation.Target;
  * @author Aidan Follestad (afollestad)
  */
 @Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.FIELD)
-public @interface Column {
-
-    boolean primaryKey() default false;
-
-    boolean autoIncrement() default false;
-
-    boolean notNull() default false;
+@Target(ElementType.TYPE)
+public @interface Table {
 
     String name() default "";
 }

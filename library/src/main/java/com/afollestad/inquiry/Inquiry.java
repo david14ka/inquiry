@@ -220,8 +220,15 @@ public final class Inquiry {
         mInstances.remove(instanceName);
     }
 
+    public void dropTable(@NonNull Class<?> rowCls) {
+        SQLiteDatabase db = new SQLiteHelper(mContext, mDatabaseName, mDatabaseVersion).getWritableDatabase();
+        db.execSQL("DROP TABLE IF EXISTS " + ClassRowConverter.getClassTable(rowCls));
+        db.close();
+    }
+
+    @Deprecated
     public void dropTable(@NonNull String tableName) {
-        final SQLiteDatabase db = new SQLiteHelper(mContext, mDatabaseName, mDatabaseVersion).getWritableDatabase();
+        SQLiteDatabase db = new SQLiteHelper(mContext, mDatabaseName, mDatabaseVersion).getWritableDatabase();
         db.execSQL("DROP TABLE IF EXISTS " + tableName);
         db.close();
     }
@@ -242,8 +249,15 @@ public final class Inquiry {
 
     @CheckResult
     @NonNull
+    @Deprecated
     public <RowType> Query<RowType, Integer> selectFrom(@NonNull String table, @NonNull Class<RowType> rowType) {
         return new Query<>(this, table, Query.SELECT, rowType);
+    }
+
+    @CheckResult
+    @NonNull
+    public <RowType> Query<RowType, Integer> select(@NonNull Class<RowType> rowType) {
+        return new Query<>(this, ClassRowConverter.getClassTable(rowType), Query.SELECT, rowType);
     }
 
     @CheckResult
@@ -254,8 +268,15 @@ public final class Inquiry {
 
     @CheckResult
     @NonNull
+    @Deprecated
     public <RowType> Query<RowType, Long[]> insertInto(@NonNull String table, @NonNull Class<RowType> rowType) {
         return new Query<>(this, table, Query.INSERT, rowType);
+    }
+
+    @CheckResult
+    @NonNull
+    public <RowType> Query<RowType, Long[]> insert(@NonNull Class<RowType> rowType) {
+        return new Query<>(this, ClassRowConverter.getClassTable(rowType), Query.INSERT, rowType);
     }
 
     @CheckResult
@@ -266,8 +287,15 @@ public final class Inquiry {
 
     @CheckResult
     @NonNull
+    @Deprecated
     public <RowType> Query<RowType, Integer> update(@NonNull String table, @NonNull Class<RowType> rowType) {
         return new Query<>(this, table, Query.UPDATE, rowType);
+    }
+
+    @CheckResult
+    @NonNull
+    public <RowType> Query<RowType, Integer> update(@NonNull Class<RowType> rowType) {
+        return new Query<>(this, ClassRowConverter.getClassTable(rowType), Query.UPDATE, rowType);
     }
 
     @CheckResult
@@ -278,8 +306,15 @@ public final class Inquiry {
 
     @CheckResult
     @NonNull
+    @Deprecated
     public <RowType> Query<RowType, Integer> deleteFrom(@NonNull String table, @NonNull Class<RowType> rowType) {
         return new Query<>(this, table, Query.DELETE, rowType);
+    }
+
+    @CheckResult
+    @NonNull
+    public <RowType> Query<RowType, Integer> delete(@NonNull Class<RowType> rowType) {
+        return new Query<>(this, ClassRowConverter.getClassTable(rowType), Query.DELETE, rowType);
     }
 
     @CheckResult

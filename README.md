@@ -22,7 +22,7 @@ Add this to your module's `build.gradle` file (make sure the version matches the
 ```gradle
 dependencies {
     // ... other dependencies
-    compile 'com.afollestad:inquiry:4.1.0'
+    compile 'com.afollestad:inquiry:4.1.1'
 }
 ```
 
@@ -120,6 +120,7 @@ In Inquiry, a row is just an object which contains a set of values that can be r
 a table in your database. In a spreadsheet, a row goes from left to right; each cell is a column in the row.
 
 ```java
+@Table
 public class Person {
 
     public Person() {
@@ -147,8 +148,15 @@ public class Person {
 }
 ```
 
-Notice that all the fields are annotated with the `@Column` annotation. If you have fields without that
+Notice that the class is annotated with the `@Table` annotation. You must include that annotation on
+any class which represents the row of a table. You canm optionally specify a name in the annotation
+arguments, just like you can with the `@Column` annotation. By default, the name of a `@Table` is
+the lowercase name of the class, plus an 's'.
+
+All the fields are annotated with the `@Column` annotation. If you have fields without that
 annotation, they will be ignored by Inquiry.
+
+---
 
 Notice that the `_id` field contains optional parameters in its annotation:
 
@@ -172,7 +180,7 @@ Here's how you would retrieve all rows from a table called *"people"*:
 ```java
 // NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
 Person[] result = Inquiry.get(this)
-    .selectFrom("people", Person.class)
+    .select(Person.class)
     .all();
 ```
 
@@ -181,7 +189,7 @@ If you only needed one row, using `first()` instead of `all()` is more efficient
 ```java
 // NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
 Person result = Inquiry.get(this)
-    .selectFrom("people", Person.class)
+    .select(Person.class)
     .first();
 ```
 
@@ -192,7 +200,7 @@ You can also perform the query on a separate thread using a callback:
 ```java
 // NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
 Inquiry.get(this)
-    .selectFrom("people", Person.class)
+    .select(Person.class)
     .all(new GetCallback<Person>() {
         @Override
         public void result(Person[] result) {
@@ -211,7 +219,7 @@ If you wanted to find rows with specific values in their columns, you can use `w
 ```java
 // NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
 Person[] result = Inquiry.get(this)
-    .selectFrom("people", Person.class)
+    .select(Person.class)
     .where("name = ? AND age > ?", "Aidan", 21)
     .all();
 ```
@@ -239,7 +247,7 @@ in your tables:
 ```java
 // NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
 Person result = Inquiry.get(this)
-    .selectFrom("people", Person.class)
+    .select(Person.class)
     .atPosition(24)
     .first();
 ```
@@ -257,7 +265,7 @@ Here's basic usage of where-in:
 ```java
 // NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
 Person[] result = Inquiry.get(this)
-    .selectFrom("people", Person.class)
+    .select(Person.class)
     .whereIn("age", 19, 21)
     .whereNotIn("age", 31, 34)
     .all();
@@ -275,7 +283,7 @@ You can combine multiple where and where-in statements together:
 ```java
 // NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
 Person[] result = Inquiry.get(this)
-    .selectFrom("people", Person.class)
+    .select(Person.class)
     .where("age > 8")
     .where("age < 21")
     .orWhereIn("name", "Aidan", "Waverly")
@@ -301,7 +309,7 @@ made in a section above:
 ```java
 // NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
 Person[] result = Inquiry.get(this)
-    .selectFrom("people", Person.class)
+    .select(Person.class)
     .projection("age", "rank")
     .all();
 ```
@@ -323,7 +331,7 @@ in the "name" column, in descending (Z-A, or greater to smaller) order:
 ```java
 // NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
 Person[] result = Inquiry.get(this)
-    .selectFrom("people", Person.class)
+    .select(Person.class)
     .limit(100)
     .sortByDesc("name", "rank")
     .sortByAsc("age")
@@ -351,7 +359,7 @@ The `any()` predicate can be used with no parameter, which will return true if t
 
 ```java
 boolean anythingReturned = Inquiry.get(this)
-    .selectFrom("idk_table", Row.class)
+    .select(Row.class)
     .any();
 ```
 
@@ -360,7 +368,7 @@ name matching "Aidan".
 
 ```java
 boolean aidanReturned = Inquiry.get(this)
-    .selectFrom("idk_table", Row.class)
+    .select(Row.class)
     .any(it -> it.name.equals("Aidan"));
 ```
 
@@ -368,7 +376,7 @@ boolean aidanReturned = Inquiry.get(this)
 
 ```java
 boolean nothingReturned = Inquiry.get(this)
-    .selectFrom("idk_table", Row.class)
+    .select(Row.class)
     .none();
 ```
 
@@ -377,7 +385,7 @@ matching "Aidan".
 
 ```java
 boolean aidanNotReturned = Inquiry.get(this)
-    .selectFrom("idk_table", Row.class)
+    .select(Row.class)
     .none(it -> it.name.equals("Aidan"));
 ```
 
@@ -392,7 +400,7 @@ Person three = new Person("Aidan", 21, 5.7f, true);
 
 // NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
 Long[] insertedIds = Inquiry.get(this)
-        .insertInto("people", Person.class)
+        .insert(Person.class)
         .values(one, two, three)
         .run();
 ```
@@ -404,7 +412,7 @@ Like `all()`, `run()` has a callback variation that will run the operation in a 
 ```java
 // NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
 Inquiry.get(this)
-    .insertInto("people", Person.class)
+    .insert(Person.class)
     .values(one, two, three)
     .run(new RunCallback() {
         @Override
@@ -429,7 +437,7 @@ Person two = new Person("Natalie", 42, 10f, false);
 
 // NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
 Integer updatedCount = Inquiry.get(this)
-    .update("people", Person.class)
+    .update(Person.class)
     .values(two)
     .where("name = ?", "Aidan")
     .run();
@@ -452,7 +460,7 @@ Person two = new Person("Natalie", 42, 10f, false);
 
 // NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
 Integer updatedCount = Inquiry.get(this)
-    .update("people", Person.class)
+    .update(Person.class)
     .values(two)
     .where("name = ?", "Aidan")
     .projection("age", "rank")
@@ -474,7 +482,7 @@ Person one = // ... retrieve from a query
 Person two = // ... retrieve from a query
 
 Integer updatedCount = Inquiry.get(this)
-    .update("people", Person.class)
+    .update(Person.class)
     .values(one, two)
     .run();
 ```
@@ -490,7 +498,7 @@ Deletion is simple:
 ```java
 // NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
 Integer deletedCount = Inquiry.get(this)
-    .deleteFrom("people")
+    .delete(Person.class)
     .where("age = ?", 21)
     .run();
 ```
@@ -509,7 +517,7 @@ Person one = // ... retrieve from a query
 Person two = // ... retrieve from a query
 
 Integer deletedCount = Inquiry.get(this)
-    .deleteFrom("people", Person.class)
+    .delete(Person.class)
     .values(one, two)
     .run();
 ```
@@ -524,7 +532,7 @@ Dropping a table means deleting it. It's pretty straight forward:
 ```java
 // NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
 Inquiry.get(this)
-    .dropTable("people");
+    .dropTable(Person.class);
 ```
 
 Just pass table name, and it's gone.
