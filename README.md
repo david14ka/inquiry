@@ -326,7 +326,7 @@ Product[] results = Inquiry.get(MainActivity.this)
 The code above will find any `Product`'s which have a name that contains "Android", a description
 that contains "Android", or a brand that contains "Android". The percent symbol used as a prefix and
 suffix in the search term means it will match anything, as long as "Android" is in the middle. You could
-also use *"Android%"* for a startsWith-like query, or *"%Android"& for an endsWith-like query.
+also use `Android%` for a *startsWith*-like query, or `%Android` for an *endsWith*-like query.
 
 **Note**: you must put the wildcards in the arguments, putting it in the first string parameter where you see
 the word "LIKE" will not work on Android.
