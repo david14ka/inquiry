@@ -22,7 +22,7 @@ Add this to your module's `build.gradle` file (make sure the version matches the
 ```gradle
 dependencies {
     // ... other dependencies
-    compile 'com.afollestad:inquiry:4.1.1'
+    compile 'com.afollestad:inquiry:4.1.2'
 }
 ```
 
@@ -38,9 +38,10 @@ dependencies {
     2. [Where](https://github.com/afollestad/inquiry#where)
     2. [Where In and Where Not In](https://github.com/afollestad/inquiry#where-in-and-where-not-in)
     3. [Combining Where Statements](https://github.com/afollestad/inquiry#combining-where-statements)
-    4. [Projection](https://github.com/afollestad/inquiry#projection)
-    5. [Sorting and Limiting](https://github.com/afollestad/inquiry#sorting-and-limiting)
-    6. [Any and None Predicates](https://github.com/afollestad/inquiry#any-and-none-predicates)
+    4. [Like](https://github.com/afollestad/inquiry#like)
+    5. [Projection](https://github.com/afollestad/inquiry#projection)
+    6. [Sorting and Limiting](https://github.com/afollestad/inquiry#sorting-and-limiting)
+    7. [Any and None Predicates](https://github.com/afollestad/inquiry#any-and-none-predicates)
 5. [Inserting Rows](https://github.com/afollestad/inquiry#inserting-rows)
 6. [Updating Rows](https://github.com/afollestad/inquiry#updating-rows)
     1. [Basics](https://github.com/afollestad/inquiry#basics-1)
@@ -111,6 +112,11 @@ Inquiry.newInstance(this, "my_new_database")
 
 It's **very** important that you `destroy()` instances when you are done with them. This closes the
 database lock and makes sure any memory references are cleaned up.
+
+---
+
+If for testing purposes, you want to use databases entirely in-memory as opposed to saving them in a file,
+you can pass `:memory` for the database name in `Inquiry.newInstance(Context, String)`.
 
 ---
 
@@ -298,6 +304,32 @@ SELECT * FROM people WHERE age > 8 AND age < 21 OR name IN ('Aidan', 'Waverly')
 ```
 
 `where()`, `whereIn()`, and `whereNotIn()` all have variations that begin with `or`.
+
+---
+
+### Like
+
+SQL allows you to use the word `LIKE` to search for things which aren't an exact match. Take this example:
+
+```java
+// A percent sign in SQL is a wildcard. This will match anything which contains "Android".
+String searchTerm = "%Android%";
+
+Product[] results = Inquiry.get(MainActivity.this)
+    .select(Product.class)
+    .where("name LIKE ?", searchTerm)
+    .orWhere("description LIKE ?", searchTerm)
+    .orWhere("brand LIKE ?", searchTerm)
+    .all();
+```
+
+The code above will find any `Product`'s which have a name that contains "Android", a description
+that contains "Android", or a brand that contains "Android". The percent symbol used as a prefix and
+suffix in the search term means it will match anything, as long as "Android" is in the middle. You could
+also use *"Android%"* for a startsWith-like query, or *"%Android"& for an endsWith-like query.
+
+**Note**: you must put the wildcards in the arguments, putting it in the first string parameter where you see
+the word "LIKE" will not work on Android.
 
 ---
 

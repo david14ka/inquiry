@@ -160,7 +160,7 @@ public final class Query<RowType, RunReturn> {
     @NonNull
     @CheckResult
     public Query<RowType, RunReturn> orWhere(@NonNull String selection, @Nullable Object... selectionArgs) {
-        return where(selection, false, selectionArgs);
+        return where(selection, true, selectionArgs);
     }
 
     @NonNull

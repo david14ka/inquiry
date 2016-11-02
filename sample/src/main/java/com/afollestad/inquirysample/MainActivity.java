@@ -16,7 +16,8 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        Inquiry.newInstance(this, "testDb1")
+        // :memory uses in-memory DB which only persists until the app closes. No file saving.
+        Inquiry.newInstance(this, ":memory")
                 .build();
         query();
     }

@@ -10,7 +10,7 @@ import android.util.Log;
 class SQLiteHelper extends SQLiteOpenHelper {
 
     SQLiteHelper(Context context, String databaseName, int version) {
-        super(context, databaseName, null, version);
+        super(context, databaseName == null || databaseName.equals(":memory") ? null : databaseName, null, version);
     }
 
     private String lastTableName;
