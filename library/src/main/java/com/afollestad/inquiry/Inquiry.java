@@ -48,7 +48,9 @@ public final class Inquiry {
     private SQLiteHelper mDatabase;
 
     public SQLiteHelper getDatabase() {
-        if (mDatabase == null && mDatabaseName != null) {
+        if (mDatabase == null) {
+            if (mDatabaseName == null || mDatabaseName.trim().isEmpty())
+                throw new IllegalStateException("You must initialize your Inquiry instance with a non-null database name.");
             mDatabase = new SQLiteHelper(mContext, mDatabaseName, mDatabaseVersion);
         }
         return mDatabase;
