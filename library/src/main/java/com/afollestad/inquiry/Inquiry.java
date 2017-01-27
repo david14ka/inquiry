@@ -24,8 +24,8 @@ import static com.afollestad.inquiry.ClassRowConverter.getAllFields;
 @SuppressWarnings("WeakerAccess")
 public final class Inquiry {
 
-    private static HashMap<String, Inquiry> mInstances;
-    private HashMap<String, Field> mIdFieldCache;
+    private static HashMap<String, Inquiry> instances;
+    private HashMap<String, Field> idFieldCache;
 
     private static String getInstanceName(@NonNull Context forContext) {
         return forContext.getClass().getName();
@@ -37,40 +37,38 @@ public final class Inquiry {
         Log.d("Inquiry", msg);
     }
 
-    Context mContext;
-    Handler mHandler;
-    @Nullable
-    String mDatabaseName;
-    boolean mCacheIdFields;
-    private int mDatabaseVersion = 1;
-    private String mInstanceName;
-
-    private SQLiteHelper mDatabase;
+    Context context;
+    Handler handler;
+    @Nullable String databaseName;
+    boolean cacheIdFields;
+    private int databaseVersion = 1;
+    private String instanceName;
+    private SQLiteHelper databaseHelper;
 
     public SQLiteHelper getDatabase() {
-        if (mDatabase == null) {
-            if (mDatabaseName == null || mDatabaseName.trim().isEmpty())
+        if (databaseHelper == null) {
+            if (databaseName == null || databaseName.trim().isEmpty())
                 throw new IllegalStateException("You must initialize your Inquiry instance with a non-null database name.");
-            mDatabase = new SQLiteHelper(mContext, mDatabaseName, mDatabaseVersion);
+            databaseHelper = new SQLiteHelper(context, databaseName, databaseVersion);
         }
-        return mDatabase;
+        return databaseHelper;
     }
 
     private Inquiry(@NonNull Context context) {
         //noinspection ConstantConditions
         if (context == null)
             throw new IllegalArgumentException("Context can't be null.");
-        mContext = context;
-        mInstanceName = getInstanceName(context);
-        mDatabaseVersion = 1;
-        mIdFieldCache = new HashMap<>();
+        this.context = context;
+        instanceName = getInstanceName(context);
+        databaseVersion = 1;
+        idFieldCache = new HashMap<>();
     }
 
     @Nullable
     Field getIdField(Class<?> forClass) {
         Field idField = null;
-        if (mCacheIdFields && mIdFieldCache != null) {
-            idField = mIdFieldCache.get(forClass.getName());
+        if (cacheIdFields && idFieldCache != null) {
+            idField = idFieldCache.get(forClass.getName());
             if (idField != null) return idField;
         }
         List<Field> allFields = getAllFields(forClass);
@@ -88,10 +86,10 @@ public final class Inquiry {
         }
         if (idField == null)
             return null;
-        if (mCacheIdFields) {
-            if (mIdFieldCache == null)
-                mIdFieldCache = new HashMap<>();
-            mIdFieldCache.put(forClass.getName(), idField);
+        if (cacheIdFields) {
+            if (idFieldCache == null)
+                idFieldCache = new HashMap<>();
+            idFieldCache.put(forClass.getName(), idField);
         }
         return idField;
     }
@@ -107,31 +105,31 @@ public final class Inquiry {
                 databaseName = "default_db";
                 LOG("Using default database name: %s", databaseName);
             }
-            newInstance.mDatabaseName = databaseName;
-            newInstance.mCacheIdFields = true;
+            newInstance.databaseName = databaseName;
+            newInstance.cacheIdFields = true;
         }
 
         @NonNull
         public Builder instanceName(@Nullable String name) {
-            newInstance.mInstanceName = name;
+            newInstance.instanceName = name;
             return this;
         }
 
         @NonNull
         public Builder databaseVersion(@IntRange(from = 1, to = Integer.MAX_VALUE) int version) {
-            newInstance.mDatabaseVersion = version;
+            newInstance.databaseVersion = version;
             return this;
         }
 
         @NonNull
         public Builder handler(@Nullable Handler handler) {
-            newInstance.mHandler = handler;
+            newInstance.handler = handler;
             return this;
         }
 
         @NonNull
         public Builder cacheIdFields(boolean cache) {
-            newInstance.mCacheIdFields = cache;
+            newInstance.cacheIdFields = cache;
             return this;
         }
 
@@ -142,21 +140,21 @@ public final class Inquiry {
 
         @NonNull
         public Inquiry build(boolean persist) {
-            final String name = newInstance.mInstanceName;
+            final String name = newInstance.instanceName;
             if (used)
                 throw new IllegalStateException("This Builder was already used to build instance " + name);
             this.used = true;
 
             if (persist) {
-                if (mInstances == null)
-                    mInstances = new HashMap<>();
-                else if (mInstances.containsKey(name))
-                    mInstances.get(name).destroyInstance();
-                mInstances.put(name, newInstance);
+                if (instances == null)
+                    instances = new HashMap<>();
+                else if (instances.containsKey(name))
+                    instances.get(name).destroyInstance();
+                instances.put(name, newInstance);
             }
 
-            if (newInstance.mHandler == null)
-                newInstance.mHandler = new Handler();
+            if (newInstance.handler == null)
+                newInstance.handler = new Handler();
             LOG("Built instance %s", name);
 
             return newInstance;
@@ -170,9 +168,9 @@ public final class Inquiry {
     @CheckResult
     @NonNull
     public static Inquiry copy(@NonNull Inquiry instance, @NonNull String newInstanceName, boolean persist) {
-        return new Inquiry.Builder(instance.mContext, instance.mDatabaseName)
-                .handler(instance.mHandler)
-                .databaseVersion(instance.mDatabaseVersion)
+        return new Inquiry.Builder(instance.context, instance.databaseName)
+                .handler(instance.handler)
+                .databaseVersion(instance.databaseVersion)
                 .instanceName(newInstanceName)
                 .build(persist);
     }
@@ -184,27 +182,27 @@ public final class Inquiry {
     }
 
     public boolean isDestroyed() {
-        return mContext == null;
+        return context == null;
     }
 
     public void destroyInstance() {
-        if (mDatabase != null) {
-            mDatabase.close();
-            mDatabase = null;
+        if (databaseHelper != null) {
+            databaseHelper.close();
+            databaseHelper = null;
         }
-        if (mIdFieldCache != null) {
-            mIdFieldCache.clear();
-            mIdFieldCache = null;
+        if (idFieldCache != null) {
+            idFieldCache.clear();
+            idFieldCache = null;
         }
-        if (mInstanceName != null) {
-            if (mInstances != null)
-                mInstances.remove(mInstanceName);
-            mInstanceName = null;
+        if (instanceName != null) {
+            if (instances != null)
+                instances.remove(instanceName);
+            instanceName = null;
         }
-        mContext = null;
-        mHandler = null;
-        mDatabaseName = null;
-        mDatabaseVersion = 0;
+        context = null;
+        handler = null;
+        databaseName = null;
+        databaseVersion = 0;
     }
 
     public static void destroy(Context context) {
@@ -212,25 +210,25 @@ public final class Inquiry {
     }
 
     public static void destroy(String instanceName) {
-        if (mInstances == null || !mInstances.containsKey(instanceName)) {
+        if (instances == null || !instances.containsKey(instanceName)) {
             LOG("No instances found to destroy by name %s.", instanceName);
             return;
         }
 
-        final Inquiry instance = mInstances.get(instanceName);
+        final Inquiry instance = instances.get(instanceName);
         instance.destroyInstance();
-        mInstances.remove(instanceName);
+        instances.remove(instanceName);
     }
 
     public void dropTable(@NonNull Class<?> rowCls) {
-        SQLiteDatabase db = new SQLiteHelper(mContext, mDatabaseName, mDatabaseVersion).getWritableDatabase();
+        SQLiteDatabase db = new SQLiteHelper(context, databaseName, databaseVersion).getWritableDatabase();
         db.execSQL("DROP TABLE IF EXISTS " + ClassRowConverter.getClassTable(rowCls));
         db.close();
     }
 
     @Deprecated
     public void dropTable(@NonNull String tableName) {
-        SQLiteDatabase db = new SQLiteHelper(mContext, mDatabaseName, mDatabaseVersion).getWritableDatabase();
+        SQLiteDatabase db = new SQLiteHelper(context, databaseName, databaseVersion).getWritableDatabase();
         db.execSQL("DROP TABLE IF EXISTS " + tableName);
         db.close();
     }
@@ -244,9 +242,9 @@ public final class Inquiry {
     @CheckResult
     @NonNull
     public static Inquiry get(@NonNull String instanceName) {
-        if (mInstances == null || !mInstances.containsKey(instanceName))
+        if (instances == null || !instances.containsKey(instanceName))
             throw new IllegalStateException(String.format("No persisted instance found for %s, or it's been garbage collected.", instanceName));
-        return mInstances.get(instanceName);
+        return instances.get(instanceName);
     }
 
     @CheckResult

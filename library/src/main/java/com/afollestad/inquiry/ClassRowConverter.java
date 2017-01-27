@@ -89,8 +89,7 @@ class ClassRowConverter {
         }
     }
 
-    @Nullable
-    private static String getFieldSchema(Field field) {
+    @Nullable private static String getFieldSchema(Field field) {
         ForeignKey fkAnnotation = field.getAnnotation(ForeignKey.class);
         if (fkAnnotation != null)
             return null;
@@ -136,8 +135,7 @@ class ClassRowConverter {
         return sb.toString();
     }
 
-    @DataType.TypeDef
-    private static int cursorTypeToColumnType(int cursorType) {
+    @DataType.TypeDef private static int cursorTypeToColumnType(int cursorType) {
         switch (cursorType) {
             default:
                 return DataType.BLOB;
@@ -160,8 +158,8 @@ class ClassRowConverter {
      * @param childType         The type of the child class
      * @return object, array, or list depending on the fieldType
      */
-    public static Object processForeignKey(@NonNull Inquiry inquiry, @NonNull String tableName, @NonNull String foreignColumnName,
-                                           @Nullable String inverseFieldName, @NonNull Object row, @Nullable Class<?> fieldType, @NonNull Class<?> childType) {
+    private static Object processForeignKey(@NonNull Inquiry inquiry, @NonNull String tableName, @NonNull String foreignColumnName,
+                                            @Nullable String inverseFieldName, @NonNull Object row, @Nullable Class<?> fieldType, @NonNull Class<?> childType) {
         if (fieldType == null)
             fieldType = List.class;
 
@@ -189,7 +187,7 @@ class ClassRowConverter {
                     try {
                         inverseField.set(val, row);
                     } catch (Throwable t) {
-                        Utils.wrapInReIfNeccessary(t);
+                        Utils.wrapInReIfNecessary(t);
                         return null;
                     }
                 }
@@ -217,7 +215,7 @@ class ClassRowConverter {
 
             if (Utils.classExtendsLazyLoader(fieldType)) {
                 @SuppressWarnings("unchecked")
-                LazyLoaderList loader = new LazyLoaderList(query.mInquiry, fkAnn.tableName(), fkAnn.foreignColumnName(),
+                LazyLoaderList loader = new LazyLoaderList(query.inquiryInstance, fkAnn.tableName(), fkAnn.foreignColumnName(),
                         fkAnn.inverseFieldName(), row, childType) {
                     @SuppressWarnings("unchecked")
                     @Override
@@ -230,7 +228,7 @@ class ClassRowConverter {
                 return;
             }
 
-            Object value = processForeignKey(query.mInquiry, fkAnn.tableName(), fkAnn.foreignColumnName(),
+            Object value = processForeignKey(query.inquiryInstance, fkAnn.tableName(), fkAnn.foreignColumnName(),
                     fkAnn.inverseFieldName(), row, fieldType, childType);
             field.set(row, value);
             return;
@@ -352,7 +350,7 @@ class ClassRowConverter {
                 throw new IllegalStateException(String.format("No field found in %s for column %s (of type %s)",
                         cls.getName(), columnName, DataType.name(columnType)));
             } catch (Exception e) {
-                Utils.wrapInReIfNeccessary(e);
+                Utils.wrapInReIfNecessary(e);
             }
         }
 
@@ -363,7 +361,7 @@ class ClassRowConverter {
                     //noinspection WrongConstant
                     loadFieldIntoRow(query, cursor, fld, row, columnIndex, -1);
                 } catch (Throwable t) {
-                    Utils.wrapInReIfNeccessary(t);
+                    Utils.wrapInReIfNecessary(t);
                 }
             }
         }
@@ -371,8 +369,7 @@ class ClassRowConverter {
         return row;
     }
 
-    @Nullable
-    static Field getField(@Nullable List<Field> fields, @NonNull String name, @Nullable Class<?>... requiredTypes) {
+    @Nullable static Field getField(@Nullable List<Field> fields, @NonNull String name, @Nullable Class<?>... requiredTypes) {
         if (fields == null || fields.size() == 0) return null;
         for (Field fld : fields) {
             fld.setAccessible(true);
@@ -473,9 +470,9 @@ class ClassRowConverter {
 
                 ForeignKey fkAnn = fld.getAnnotation(ForeignKey.class);
                 if (fkAnn != null) {
-                    if (query.mForeignChildren == null)
-                        query.mForeignChildren = new HashMap<>();
-                    query.mForeignChildren.put(row, fld);
+                    if (query.foreignChildren == null)
+                        query.foreignChildren = new HashMap<>();
+                    query.foreignChildren.put(row, fld);
                     continue;
                 }
 
@@ -524,7 +521,7 @@ class ClassRowConverter {
                 throw new IllegalStateException("Class " + row.getClass().getName() + " has no column fields.");
             return vals;
         } catch (Throwable t) {
-            Utils.wrapInReIfNeccessary(t);
+            Utils.wrapInReIfNecessary(t);
             return null;
         }
     }

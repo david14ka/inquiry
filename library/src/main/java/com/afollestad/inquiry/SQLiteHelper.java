@@ -22,7 +22,7 @@ class SQLiteHelper extends SQLiteOpenHelper {
             String createStatement = String.format("CREATE TABLE IF NOT EXISTS %s (%s);", name, columns);
             getWritableDatabase().execSQL(createStatement);
         } catch (Exception e) {
-            Utils.wrapInReIfNeccessary(e);
+            Utils.wrapInReIfNecessary(e);
         }
     }
 

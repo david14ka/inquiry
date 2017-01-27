@@ -43,38 +43,36 @@ public final class Query<RowType, RunReturn> {
     protected final static int UPDATE = 3;
     protected final static int DELETE = 4;
 
-    protected final Inquiry mInquiry;
-    private Uri mContentUri;
-    private String mTableName;
-    @Nullable
-    private final Class<RowType> mRowClass;
+    protected final Inquiry inquiryInstance;
+    private Uri contentUri;
+    private String tableName;
+    @Nullable private final Class<RowType> rowClass;
 
-    @QueryType
-    private final int mQueryType;
-    private String[] mProjection;
-    private StringBuilder mWhere;
-    private List<String> mWhereArgs;
-    private StringBuilder mSortOrder;
-    private int mLimit;
-    private RowType[] mValues;
+    @QueryType private final int queryType;
+    private String[] projection;
+    private StringBuilder where;
+    private List<String> whereArgs;
+    private StringBuilder sortOrder;
+    private int limit;
+    private RowType[] values;
 
-    protected HashMap<Object, Field> mForeignChildren;
+    protected HashMap<Object, Field> foreignChildren;
 
     protected Query(@NonNull Inquiry inquiry, @NonNull Uri contentUri, @QueryType int type, @Nullable Class<RowType> mClass) {
-        mInquiry = inquiry;
-        mContentUri = contentUri;
-        if (mContentUri.getScheme() == null || !mContentUri.getScheme().equals("content"))
+        inquiryInstance = inquiry;
+        this.contentUri = contentUri;
+        if (this.contentUri.getScheme() == null || !this.contentUri.getScheme().equals("content"))
             throw new IllegalStateException("You can only use content:// URIs for content providers.");
-        mQueryType = type;
-        mRowClass = mClass;
+        queryType = type;
+        rowClass = mClass;
     }
 
     protected Query(@NonNull Inquiry inquiry, @NonNull String tableName, @QueryType int type, @Nullable Class<RowType> mClass) {
-        mInquiry = inquiry;
-        mQueryType = type;
-        mRowClass = mClass;
-        mTableName = tableName;
-        if (inquiry.mDatabaseName == null)
+        inquiryInstance = inquiry;
+        queryType = type;
+        rowClass = mClass;
+        this.tableName = tableName;
+        if (inquiry.databaseName == null)
             throw new IllegalStateException("Inquiry was not initialized with a database name, it can only use content providers in this configuration.");
         inquiry.getDatabase().createTableIfNecessary(tableName, mClass);
     }
@@ -84,42 +82,42 @@ public final class Query<RowType, RunReturn> {
         int argCount = args != null ? args.length : 0;
         if (Utils.countOccurrences(statement, '?') != argCount)
             throw new IllegalArgumentException("There must be the same amount of args as there is '?' characters in your where statement.");
-        if (mWhere == null)
-            mWhere = new StringBuilder();
-        if (mWhereArgs == null)
-            mWhereArgs = new ArrayList<>(argCount);
-        if (mWhere.length() > 0)
-            mWhere.append(or ? " OR " : " AND ");
-        mWhere.append(statement);
+        if (where == null)
+            where = new StringBuilder();
+        if (whereArgs == null)
+            whereArgs = new ArrayList<>(argCount);
+        if (where.length() > 0)
+            where.append(or ? " OR " : " AND ");
+        where.append(statement);
         if (args != null)
-            Collections.addAll(mWhereArgs, args);
+            Collections.addAll(whereArgs, args);
     }
 
     private String getWhere() {
-        return mWhere != null ? mWhere.toString() : null;
+        return where != null ? where.toString() : null;
     }
 
     private String[] getWhereArgs() {
-        return mWhereArgs != null && mWhereArgs.size() > 0 ?
-                mWhereArgs.toArray(new String[mWhereArgs.size()]) : null;
+        return whereArgs != null && whereArgs.size() > 0 ?
+                whereArgs.toArray(new String[whereArgs.size()]) : null;
     }
 
     private String getSort() {
-        return mSortOrder != null ? mSortOrder.toString() : null;
+        return sortOrder != null ? sortOrder.toString() : null;
     }
 
     @NonNull
     @CheckResult
     public Query<RowType, RunReturn> atPosition(@IntRange(from = 0, to = Integer.MAX_VALUE) int position) {
         Cursor cursor;
-        if (mContentUri != null) {
-            cursor = mInquiry.mContext.getContentResolver().query(mContentUri, null, getWhere(), getWhereArgs(), null);
+        if (contentUri != null) {
+            cursor = inquiryInstance.context.getContentResolver().query(contentUri, null, getWhere(), getWhereArgs(), null);
         } else {
-            if (mInquiry.getDatabase() == null)
+            if (inquiryInstance.getDatabase() == null)
                 throw new IllegalStateException("Database helper was null.");
-            else if (mTableName == null)
+            else if (tableName == null)
                 throw new IllegalStateException("Table name was null.");
-            cursor = mInquiry.getDatabase().query(mTableName, null, getWhere(), getWhereArgs(), null);
+            cursor = inquiryInstance.getDatabase().query(tableName, null, getWhere(), getWhereArgs(), null);
         }
         if (cursor != null) {
             if (position < 0 || position >= cursor.getCount()) {
@@ -209,54 +207,54 @@ public final class Query<RowType, RunReturn> {
 
     @NonNull
     public Query<RowType, RunReturn> clearWhere() {
-        mWhere.setLength(0);
-        mWhere = null;
-        mWhereArgs.clear();
-        mWhereArgs = null;
+        where.setLength(0);
+        where = null;
+        whereArgs.clear();
+        whereArgs = null;
         return this;
     }
 
     @NonNull
     @CheckResult
     public Query<RowType, RunReturn> sort(@NonNull String sortOrder) {
-        if (mSortOrder == null)
-            mSortOrder = new StringBuilder(sortOrder.length());
-        else if (mSortOrder.length() > 0)
-            mSortOrder.append(", ");
-        mSortOrder.append(sortOrder);
+        if (this.sortOrder == null)
+            this.sortOrder = new StringBuilder(sortOrder.length());
+        else if (this.sortOrder.length() > 0)
+            this.sortOrder.append(", ");
+        this.sortOrder.append(sortOrder);
         return this;
     }
 
     @NonNull
     @CheckResult
     public Query<RowType, RunReturn> sortByAsc(@NonNull String... columnNames) {
-        if (mSortOrder == null)
-            mSortOrder = new StringBuilder();
-        mSortOrder.append(Utils.join(mSortOrder.length() > 0, "ASC", columnNames));
+        if (sortOrder == null)
+            sortOrder = new StringBuilder();
+        sortOrder.append(Utils.join(sortOrder.length() > 0, "ASC", columnNames));
         return this;
     }
 
     @NonNull
     @CheckResult
     public Query<RowType, RunReturn> sortByDesc(@NonNull String... columnNames) {
-        if (mSortOrder == null)
-            mSortOrder = new StringBuilder();
-        mSortOrder.append(Utils.join(mSortOrder.length() > 0, "DESC", columnNames));
+        if (sortOrder == null)
+            sortOrder = new StringBuilder();
+        sortOrder.append(Utils.join(sortOrder.length() > 0, "DESC", columnNames));
         return this;
     }
 
     @NonNull
     public Query<RowType, RunReturn> clearSort() {
-        if (mSortOrder == null) return this;
-        mSortOrder.setLength(0);
-        mSortOrder = null;
+        if (sortOrder == null) return this;
+        sortOrder.setLength(0);
+        sortOrder = null;
         return this;
     }
 
     @NonNull
     @CheckResult
     public Query<RowType, RunReturn> limit(int limit) {
-        mLimit = limit;
+        this.limit = limit;
         return this;
     }
 
@@ -264,15 +262,15 @@ public final class Query<RowType, RunReturn> {
     @CheckResult
     @SuppressWarnings("unchecked")
     protected final Query<RowType, RunReturn> value(@NonNull Object value) {
-        mValues = (RowType[]) Array.newInstance(mRowClass, 1);
-        Array.set(mValues, 0, value);
+        values = (RowType[]) Array.newInstance(rowClass, 1);
+        Array.set(values, 0, value);
         return this;
     }
 
     @NonNull
     @CheckResult
     protected final Query<RowType, RunReturn> valuesArray(@NonNull Object[] values) {
-        mValues = (RowType[]) values;
+        this.values = (RowType[]) values;
         return this;
     }
 
@@ -280,7 +278,7 @@ public final class Query<RowType, RunReturn> {
     @CheckResult
     @SafeVarargs
     public final Query<RowType, RunReturn> values(@NonNull RowType... values) {
-        mValues = values;
+        this.values = values;
         return this;
     }
 
@@ -288,20 +286,20 @@ public final class Query<RowType, RunReturn> {
     @CheckResult
     public final Query<RowType, RunReturn> values(@NonNull List<RowType> values) {
         if (values.size() == 0) {
-            mValues = null;
+            this.values = null;
             return this;
         }
         //noinspection unchecked
-        mValues = (RowType[]) Array.newInstance(mRowClass, values.size());
+        this.values = (RowType[]) Array.newInstance(rowClass, values.size());
         for (int i = 0; i < values.size(); i++)
-            mValues[i] = values.get(i);
+            this.values[i] = values.get(i);
         return this;
     }
 
     @NonNull
     @CheckResult
     public Query<RowType, RunReturn> projection(@NonNull String... values) {
-        mProjection = values;
+        projection = values;
         return this;
     }
 
@@ -309,33 +307,33 @@ public final class Query<RowType, RunReturn> {
     @Nullable
     @CheckResult
     private RowType[] getInternal(int limit) {
-        if (mRowClass == null)
+        if (rowClass == null)
             return null;
-        else if (mInquiry.mContext == null)
+        else if (inquiryInstance.context == null)
             return null;
-        if (mProjection == null)
-            mProjection = ClassRowConverter.generateProjection(mRowClass);
+        if (projection == null)
+            projection = ClassRowConverter.generateProjection(rowClass);
 
         String sort = getSort();
         if (limit > -1) sort += String.format(Locale.getDefault(), " LIMIT %d", limit);
         Cursor cursor;
-        if (mContentUri != null) {
-            cursor = mInquiry.mContext.getContentResolver().query(mContentUri, mProjection, getWhere(), getWhereArgs(), sort);
+        if (contentUri != null) {
+            cursor = inquiryInstance.context.getContentResolver().query(contentUri, projection, getWhere(), getWhereArgs(), sort);
         } else {
-            if (mInquiry.getDatabase() == null)
+            if (inquiryInstance.getDatabase() == null)
                 throw new IllegalStateException("Database helper was null.");
-            else if (mTableName == null)
+            else if (tableName == null)
                 throw new IllegalStateException("Table name was null.");
-            cursor = mInquiry.getDatabase().query(mTableName, mProjection, getWhere(), getWhereArgs(), sort);
+            cursor = inquiryInstance.getDatabase().query(tableName, projection, getWhere(), getWhereArgs(), sort);
         }
 
         if (cursor != null) {
             RowType[] results = null;
             if (cursor.getCount() > 0) {
-                results = (RowType[]) Array.newInstance(mRowClass, cursor.getCount());
+                results = (RowType[]) Array.newInstance(rowClass, cursor.getCount());
                 int index = 0;
                 while (cursor.moveToNext()) {
-                    results[index] = ClassRowConverter.cursorToCls(this, cursor, mRowClass);
+                    results[index] = ClassRowConverter.cursorToCls(this, cursor, rowClass);
                     index++;
                 }
             }
@@ -358,7 +356,7 @@ public final class Query<RowType, RunReturn> {
     @Nullable
     @CheckResult
     public RowType first() {
-        if (mRowClass == null) return null;
+        if (rowClass == null) return null;
         RowType[] results = getInternal(1);
         if (results == null || results.length == 0)
             return null;
@@ -398,7 +396,7 @@ public final class Query<RowType, RunReturn> {
     @Nullable
     @CheckResult
     public RowType[] all() {
-        return getInternal(mLimit > 0 ? mLimit : -1);
+        return getInternal(limit > 0 ? limit : -1);
     }
 
     public void all(@NonNull final GetCallback<RowType> callback) {
@@ -406,8 +404,8 @@ public final class Query<RowType, RunReturn> {
             @Override
             public void run() {
                 final RowType[] results = all();
-                if (mInquiry.mHandler == null) return;
-                mInquiry.mHandler.post(new Runnable() {
+                if (inquiryInstance.handler == null) return;
+                inquiryInstance.handler.post(new Runnable() {
                     @Override
                     public void run() {
                         callback.result(results);
@@ -420,9 +418,9 @@ public final class Query<RowType, RunReturn> {
     @SuppressLint("SwitchIntDef")
     @SuppressWarnings("unchecked")
     public RunReturn run() {
-        if (mQueryType != DELETE && (mValues == null || mValues.length == 0))
+        if (queryType != DELETE && (values == null || values.length == 0))
             throw new IllegalStateException("No values were provided for this query to run.");
-        else if (mInquiry.mContext == null) {
+        else if (inquiryInstance.context == null) {
             try {
                 return (RunReturn) (Integer) 0;
             } catch (Throwable t) {
@@ -430,28 +428,28 @@ public final class Query<RowType, RunReturn> {
             }
         }
 
-        final ContentResolver cr = mInquiry.mContext.getContentResolver();
-        final List<Field> clsFields = ClassRowConverter.getAllFields(mRowClass);
-        if (mTableName == null)
+        final ContentResolver cr = inquiryInstance.context.getContentResolver();
+        final List<Field> clsFields = ClassRowConverter.getAllFields(rowClass);
+        if (tableName == null)
             throw new IllegalStateException("The table name cannot be null.");
-        Field rowIdField = mInquiry.getIdField(mRowClass);
+        Field rowIdField = inquiryInstance.getIdField(rowClass);
 
         try {
-            switch (mQueryType) {
+            switch (queryType) {
                 case INSERT:
-                    Long[] insertedIds = new Long[mValues.length];
-                    if (mInquiry.getDatabase() != null) {
-                        for (int i = 0; i < mValues.length; i++) {
-                            final RowType row = mValues[i];
+                    Long[] insertedIds = new Long[values.length];
+                    if (inquiryInstance.getDatabase() != null) {
+                        for (int i = 0; i < values.length; i++) {
+                            final RowType row = values[i];
                             if (row == null) continue;
-                            insertedIds[i] = mInquiry.getDatabase().insert(mTableName, ClassRowConverter.clsToVals(this, row, null, clsFields, false));
+                            insertedIds[i] = inquiryInstance.getDatabase().insert(tableName, ClassRowConverter.clsToVals(this, row, null, clsFields, false));
                             ClassRowConverter.setIdField(row, rowIdField, insertedIds[i]);
                         }
-                    } else if (mContentUri != null) {
-                        for (int i = 0; i < mValues.length; i++) {
-                            final RowType row = mValues[i];
+                    } else if (contentUri != null) {
+                        for (int i = 0; i < values.length; i++) {
+                            final RowType row = values[i];
                             if (row == null) continue;
-                            final Uri uri = cr.insert(mContentUri, ClassRowConverter.clsToVals(this, row, null, clsFields, false));
+                            final Uri uri = cr.insert(contentUri, ClassRowConverter.clsToVals(this, row, null, clsFields, false));
                             if (uri == null) return (RunReturn) (Long) (-1L);
                             insertedIds[i] = Long.parseLong(uri.getLastPathSegment());
                             ClassRowConverter.setIdField(row, rowIdField, insertedIds[i]);
@@ -462,8 +460,8 @@ public final class Query<RowType, RunReturn> {
                     return (RunReturn) insertedIds;
                 case UPDATE: {
                     boolean allHaveIds = rowIdField != null;
-                    if (rowIdField != null && mValues != null) {
-                        for (RowType mValue : mValues) {
+                    if (rowIdField != null && values != null) {
+                        for (RowType mValue : values) {
                             if (mValue == null) continue;
                             long id = ClassRowConverter.getRowId(mValue, rowIdField);
                             if (id <= 0) {
@@ -480,14 +478,14 @@ public final class Query<RowType, RunReturn> {
                         }
 
                         int updatedCount = 0;
-                        for (RowType row : mValues) {
+                        for (RowType row : values) {
                             if (row == null) continue;
                             long rowId = ClassRowConverter.getRowId(row, rowIdField);
-                            ContentValues values = ClassRowConverter.clsToVals(this, row, mProjection, clsFields, true);
-                            if (mInquiry.getDatabase() != null) {
-                                updatedCount += mInquiry.getDatabase().update(mTableName, values, "_id = ?", new String[]{rowId + ""});
-                            } else if (mContentUri != null) {
-                                updatedCount += cr.update(mContentUri, values, "_id = ?", new String[]{rowId + ""});
+                            ContentValues values = ClassRowConverter.clsToVals(this, row, projection, clsFields, true);
+                            if (inquiryInstance.getDatabase() != null) {
+                                updatedCount += inquiryInstance.getDatabase().update(tableName, values, "_id = ?", new String[]{rowId + ""});
+                            } else if (contentUri != null) {
+                                updatedCount += cr.update(contentUri, values, "_id = ?", new String[]{rowId + ""});
                             } else
                                 throw new IllegalStateException("Database helper was null.");
                         }
@@ -496,35 +494,35 @@ public final class Query<RowType, RunReturn> {
                         return (RunReturn) (Integer) updatedCount;
                     }
 
-                    RowType firstNotNull = mValues[mValues.length - 1];
+                    RowType firstNotNull = values[values.length - 1];
                     if (firstNotNull == null) {
-                        for (int i = mValues.length - 2; i >= 0; i--) {
-                            firstNotNull = mValues[i];
+                        for (int i = values.length - 2; i >= 0; i--) {
+                            firstNotNull = values[i];
                             if (firstNotNull != null) break;
                         }
                     }
                     if (firstNotNull == null)
                         throw new IllegalStateException("No non-null values specified to update.");
 
-                    ContentValues values = ClassRowConverter.clsToVals(this, firstNotNull, mProjection, clsFields, true);
-                    if (mInquiry.getDatabase() != null) {
-                        RunReturn value = (RunReturn) (Integer) mInquiry.getDatabase().update(mTableName, values, getWhere(), getWhereArgs());
+                    ContentValues values = ClassRowConverter.clsToVals(this, firstNotNull, projection, clsFields, true);
+                    if (inquiryInstance.getDatabase() != null) {
+                        RunReturn value = (RunReturn) (Integer) inquiryInstance.getDatabase().update(tableName, values, getWhere(), getWhereArgs());
                         postRun(true);
                         return value;
-                    } else if (mContentUri != null)
-                        return (RunReturn) (Integer) cr.update(mContentUri, values, getWhere(), getWhereArgs());
+                    } else if (contentUri != null)
+                        return (RunReturn) (Integer) cr.update(contentUri, values, getWhere(), getWhereArgs());
                     else
                         throw new IllegalStateException("Database helper was null.");
                 }
                 case DELETE: {
                     Long[] idsToDelete = null;
-                    if (rowIdField != null && mValues != null) {
+                    if (rowIdField != null && values != null) {
                         int nonNullFound = 0;
-                        idsToDelete = new Long[mValues.length];
-                        for (int i = 0; i < mValues.length; i++) {
-                            if (mValues[i] == null) continue;
+                        idsToDelete = new Long[values.length];
+                        for (int i = 0; i < values.length; i++) {
+                            if (values[i] == null) continue;
                             nonNullFound++;
-                            long id = ClassRowConverter.getRowId(mValues[i], rowIdField);
+                            long id = ClassRowConverter.getRowId(values[i], rowIdField);
                             idsToDelete[i] = id;
                             if (id <= 0) {
                                 idsToDelete = null;
@@ -543,18 +541,18 @@ public final class Query<RowType, RunReturn> {
                         whereIn("_id", idsToDelete);
                     }
 
-                    if (mInquiry.getDatabase() != null) {
-                        RunReturn value = (RunReturn) (Integer) mInquiry.getDatabase().delete(mTableName, getWhere(), getWhereArgs());
+                    if (inquiryInstance.getDatabase() != null) {
+                        RunReturn value = (RunReturn) (Integer) inquiryInstance.getDatabase().delete(tableName, getWhere(), getWhereArgs());
                         traverseDelete();
                         return value;
-                    } else if (mContentUri != null)
-                        return (RunReturn) (Integer) cr.delete(mContentUri, getWhere(), getWhereArgs());
+                    } else if (contentUri != null)
+                        return (RunReturn) (Integer) cr.delete(contentUri, getWhere(), getWhereArgs());
                     else
                         throw new IllegalStateException("Database helper was null.");
                 }
             }
         } catch (Throwable t) {
-            Utils.wrapInReIfNeccessary(t);
+            Utils.wrapInReIfNecessary(t);
         }
         return null;
     }
@@ -564,8 +562,8 @@ public final class Query<RowType, RunReturn> {
             @Override
             public void run() {
                 final RunReturn changed = Query.this.run();
-                if (mInquiry.mHandler == null) return;
-                mInquiry.mHandler.post(new Runnable() {
+                if (inquiryInstance.handler == null) return;
+                inquiryInstance.handler.post(new Runnable() {
                     @Override
                     public void run() {
                         callback.result(changed);
@@ -578,7 +576,7 @@ public final class Query<RowType, RunReturn> {
     private void traverseDelete() {
         RowType[] rowsThatWillDelete = all();
         if (rowsThatWillDelete == null || rowsThatWillDelete.length == 0) return;
-        List<Field> fields = ClassRowConverter.getAllFields(mRowClass);
+        List<Field> fields = ClassRowConverter.getAllFields(rowClass);
 
         for (RowType row : rowsThatWillDelete) {
             for (Field fld : fields) {
@@ -586,18 +584,18 @@ public final class Query<RowType, RunReturn> {
                 ForeignKey fkAnn = fld.getAnnotation(ForeignKey.class);
                 if (fkAnn != null) {
                     try {
-                        Field rowIdField = mInquiry.getIdField(mRowClass);
+                        Field rowIdField = inquiryInstance.getIdField(rowClass);
                         if (rowIdField == null)
-                            throw new IllegalStateException("No _id column field found in " + mRowClass);
+                            throw new IllegalStateException("No _id column field found in " + rowClass);
                         Class<?> listGenericType = Utils.getGenericTypeOfField(fld);
                         long rowId = rowIdField.getLong(row);
-                        Inquiry fkInstance = Inquiry.copy(mInquiry, "[@fk]:" + fkAnn.tableName() + "//" + fkAnn.foreignColumnName(), false);
+                        Inquiry fkInstance = Inquiry.copy(inquiryInstance, "[@fk]:" + fkAnn.tableName() + "//" + fkAnn.foreignColumnName(), false);
                         fkInstance.deleteFrom(fkAnn.tableName(), listGenericType)
                                 .where(fkAnn.foreignColumnName() + " = ?", rowId)
                                 .run();
                         fkInstance.destroyInstance();
                     } catch (Throwable t) {
-                        Utils.wrapInReIfNeccessary(t);
+                        Utils.wrapInReIfNecessary(t);
                     }
                 }
             }
@@ -605,9 +603,9 @@ public final class Query<RowType, RunReturn> {
     }
 
     private void postRun(boolean updateMode) {
-        if (mForeignChildren == null || mForeignChildren.size() == 0) return;
-        for (Object row : mForeignChildren.keySet()) {
-            Field field = mForeignChildren.get(row);
+        if (foreignChildren == null || foreignChildren.size() == 0) return;
+        for (Object row : foreignChildren.keySet()) {
+            Field field = foreignChildren.get(row);
             postRun(updateMode, row, field);
         }
     }
@@ -626,8 +624,8 @@ public final class Query<RowType, RunReturn> {
             }
 
             Class<?> listGenericType = Utils.getGenericTypeOfField(fld);
-            Field idField = mInquiry.getIdField(row.getClass());
-            Field fkIdField = mInquiry.getIdField(listGenericType);
+            Field idField = inquiryInstance.getIdField(row.getClass());
+            Field fkIdField = inquiryInstance.getIdField(listGenericType);
             Field fkField = ClassRowConverter.getField(ClassRowConverter.getAllFields(listGenericType),
                     fkAnn.foreignColumnName(), Long.class, long.class);
 
@@ -653,7 +651,7 @@ public final class Query<RowType, RunReturn> {
                 else
                     array = new Object[]{fldVal};
             }
-            Inquiry fkInstance = Inquiry.copy(mInquiry, "[@fk]:" + fkAnn.tableName() + "//" + fkAnn.foreignColumnName(), false);
+            Inquiry fkInstance = Inquiry.copy(inquiryInstance, "[@fk]:" + fkAnn.tableName() + "//" + fkAnn.foreignColumnName(), false);
 
             if ((array != null && array.length > 0) || (list != null && list.size() > 0)) {
                 // Update foreign row columns with this row's ID
@@ -691,7 +689,7 @@ public final class Query<RowType, RunReturn> {
 
             fkInstance.destroyInstance();
         } catch (Throwable t) {
-            Utils.wrapInReIfNeccessary(t);
+            Utils.wrapInReIfNecessary(t);
         }
     }
 }

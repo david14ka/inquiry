@@ -22,7 +22,7 @@ class Utils {
 
     @SuppressWarnings("unchecked")
     @CheckResult
-    public static <T> T newInstance(@NonNull Class<T> cls) {
+    static <T> T newInstance(@NonNull Class<T> cls) {
         final Constructor ctor = getDefaultConstructor(cls);
         try {
             return (T) ctor.newInstance();
@@ -32,7 +32,7 @@ class Utils {
     }
 
     @CheckResult
-    public static Constructor<?> getDefaultConstructor(@NonNull Class<?> cls) {
+    private static Constructor<?> getDefaultConstructor(@NonNull Class<?> cls) {
         final Constructor[] ctors = cls.getDeclaredConstructors();
         Constructor ctor = null;
         for (Constructor ct : ctors) {
@@ -46,7 +46,7 @@ class Utils {
         return ctor;
     }
 
-    public static void closeQuietely(@Nullable Closeable c) {
+    static void closeQuietely(@Nullable Closeable c) {
         if (c != null) {
             try {
                 c.close();
@@ -57,7 +57,7 @@ class Utils {
 
     @IntRange(from = 0, to = Integer.MAX_VALUE)
     @CheckResult
-    public static int countOccurrences(String haystack, char needle) {
+    static int countOccurrences(String haystack, char needle) {
         int count = 0;
         for (int i = 0; i < haystack.length(); i++) {
             if (haystack.charAt(i) == needle) count++;
@@ -67,7 +67,7 @@ class Utils {
 
     @NonNull
     @CheckResult
-    public static String createArgsString(int argsCount) {
+    static String createArgsString(int argsCount) {
         StringBuilder sb = new StringBuilder(argsCount * 3 - 1);
         sb.append("(?");
         for (int i = 1; i < argsCount; i++)
@@ -78,7 +78,7 @@ class Utils {
 
     @NonNull
     @CheckResult
-    public static String join(boolean leadingComma, @Nullable String suffix, @NonNull Object... array) {
+    static String join(boolean leadingComma, @Nullable String suffix, @NonNull Object... array) {
         final StringBuilder sb = new StringBuilder();
         if (leadingComma)
             sb.append(", ");
@@ -93,7 +93,7 @@ class Utils {
         return sb.toString();
     }
 
-    public static String[] stringifyArray(@Nullable Object[] array) {
+    static String[] stringifyArray(@Nullable Object[] array) {
         if (array == null || array.length == 0) return null;
         final String[] result = new String[array.length];
         for (int i = 0; i < array.length; i++)
@@ -101,7 +101,7 @@ class Utils {
         return result;
     }
 
-    public static boolean classExtendsLazyLoader(Class<?> cls) {
+    static boolean classExtendsLazyLoader(Class<?> cls) {
         if (cls.equals(LazyLoaderList.class))
             return true;
         while (cls.getSuperclass() != null)
@@ -109,7 +109,7 @@ class Utils {
         return cls.equals(LazyLoaderList.class);
     }
 
-    public static boolean classImplementsList(Class<?> cls) {
+    static boolean classImplementsList(Class<?> cls) {
         if (cls.equals(List.class))
             return true;
         Class[] is = cls.getInterfaces();
@@ -126,7 +126,7 @@ class Utils {
         return fullName;
     }
 
-    public static Class<?> getGenericTypeOfField(Field field) {
+    static Class<?> getGenericTypeOfField(Field field) {
         if (field.getType().isArray()) {
             return field.getType().getComponentType();
         } else if (classImplementsList(field.getType())) {
@@ -141,7 +141,7 @@ class Utils {
         }
     }
 
-    public static void wrapInReIfNeccessary(Throwable t) throws RuntimeException {
+    static void wrapInReIfNecessary(Throwable t) throws RuntimeException {
         if (t instanceof RuntimeException) {
             throw (RuntimeException) t;
         } else {
