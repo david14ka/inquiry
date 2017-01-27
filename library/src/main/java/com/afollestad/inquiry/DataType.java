@@ -10,7 +10,7 @@ import java.lang.annotation.RetentionPolicy;
  */
 class DataType {
 
-    @IntDef({INTEGER, REAL, TEXT, BLOB})
+    @IntDef({INTEGER, REAL, TEXT, BLOB, UNKNOWN})
     @Retention(RetentionPolicy.SOURCE) @interface TypeDef {
     }
 
@@ -38,6 +38,8 @@ class DataType {
      * Translates to byte[] in Java.
      */
     static final int BLOB = 4;
+
+    static final int UNKNOWN = 5;
 
     public static String name(int dataInt) {
         switch (dataInt) {

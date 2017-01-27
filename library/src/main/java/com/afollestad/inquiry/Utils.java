@@ -10,7 +10,6 @@ import com.afollestad.inquiry.lazyloading.LazyLoaderList;
 import java.io.Closeable;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.List;
@@ -36,6 +35,8 @@ class Utils {
         final Constructor[] ctors = cls.getDeclaredConstructors();
         Constructor ctor = null;
         for (Constructor ct : ctors) {
+            if (ct.getParameterTypes() != null && ct.getParameterTypes().length != 0)
+                continue;
             ctor = ct;
             if (ctor.getGenericParameterTypes().length == 0)
                 break;
@@ -126,18 +127,18 @@ class Utils {
         return fullName;
     }
 
-    static Class<?> getGenericTypeOfField(Field field) {
-        if (field.getType().isArray()) {
-            return field.getType().getComponentType();
-        } else if (classImplementsList(field.getType())) {
-            Type type = ((ParameterizedType) field.getGenericType()).getActualTypeArguments()[0];
+    static Class<?> getGenericTypeOfField(ClassColumnProxy proxy) {
+        if (proxy.getType().isArray()) {
+            return proxy.getType().getComponentType();
+        } else if (classImplementsList(proxy.getType())) {
+            Type type = ((ParameterizedType) proxy.getGenericType()).getActualTypeArguments()[0];
             try {
                 return Class.forName(getClassName(type));
             } catch (ClassNotFoundException e) {
                 throw new IllegalStateException("Unable to find class for " + getClassName(type));
             }
         } else {
-            return field.getType();
+            return proxy.getType();
         }
     }
 

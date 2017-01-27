@@ -12,11 +12,10 @@ import android.util.Log;
 
 import com.afollestad.inquiry.annotations.Column;
 
-import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.List;
 
-import static com.afollestad.inquiry.ClassRowConverter.getAllFields;
+import static com.afollestad.inquiry.InquiryConverter.classColumnProxies;
 
 /**
  * @author Aidan Follestad (afollestad)
@@ -25,7 +24,7 @@ import static com.afollestad.inquiry.ClassRowConverter.getAllFields;
 public final class Inquiry {
 
     private static HashMap<String, Inquiry> instances;
-    private HashMap<String, Field> idFieldCache;
+    private HashMap<String, ClassColumnProxy> idProxyCache;
 
     private static String getInstanceName(@NonNull Context forContext) {
         return forContext.getClass().getName();
@@ -45,7 +44,7 @@ public final class Inquiry {
     private String instanceName;
     private SQLiteHelper databaseHelper;
 
-    public SQLiteHelper getDatabase() {
+    public SQLiteHelper _getDatabase() {
         if (databaseHelper == null) {
             if (databaseName == null || databaseName.trim().isEmpty())
                 throw new IllegalStateException("You must initialize your Inquiry instance with a non-null database name.");
@@ -54,44 +53,43 @@ public final class Inquiry {
         return databaseHelper;
     }
 
-    private Inquiry(@NonNull Context context) {
+    Inquiry(@NonNull Context context) {
         //noinspection ConstantConditions
         if (context == null)
             throw new IllegalArgumentException("Context can't be null.");
         this.context = context;
         instanceName = getInstanceName(context);
         databaseVersion = 1;
-        idFieldCache = new HashMap<>();
+        idProxyCache = new HashMap<>();
     }
 
-    @Nullable
-    Field getIdField(Class<?> forClass) {
-        Field idField = null;
-        if (cacheIdFields && idFieldCache != null) {
-            idField = idFieldCache.get(forClass.getName());
-            if (idField != null) return idField;
+    @Nullable ClassColumnProxy getIdProxy(Class<?> forClass) {
+        ClassColumnProxy idProxy = null;
+        if (cacheIdFields && idProxyCache != null) {
+            idProxy = idProxyCache.get(forClass.getName());
+            if (idProxy != null) return idProxy;
         }
-        List<Field> allFields = getAllFields(forClass);
-        for (Field field : allFields) {
-            final Column colAnn = field.getAnnotation(Column.class);
-            if (colAnn == null) continue;
-            final String colName = ClassRowConverter.selectColumnName(colAnn, field);
-            if (colName.equals("_id")) {
-                if (!colAnn.autoIncrement() || !colAnn.primaryKey())
-                    throw new IllegalStateException("Fields which represent _id columns MUST have autoIncrement() AND primaryKey() enabled.");
-                if (field.getType() != Long.class && field.getType() != long.class)
-                    throw new IllegalStateException("Fields which represent _id columns MUST be of type Long.");
-                idField = field;
+
+        List<ClassColumnProxy> allProxiesList = classColumnProxies(forClass);
+        for (ClassColumnProxy proxy : allProxiesList) {
+            if (proxy.isId()) {
+                Column columnAnnotation = proxy.getColumn();
+                if (!columnAnnotation.autoIncrement() || !columnAnnotation.primaryKey())
+                    throw new IllegalStateException("Columns which represent _id columns MUST have autoIncrement() AND primaryKey() enabled.");
+                if (proxy.getType() != Long.class && proxy.getType() != long.class)
+                    throw new IllegalStateException("Columns which represent _id columns MUST be of type Long.");
+                idProxy = proxy;
             }
         }
-        if (idField == null)
+        if (idProxy == null) {
             return null;
-        if (cacheIdFields) {
-            if (idFieldCache == null)
-                idFieldCache = new HashMap<>();
-            idFieldCache.put(forClass.getName(), idField);
         }
-        return idField;
+        if (cacheIdFields) {
+            if (idProxyCache == null)
+                idProxyCache = new HashMap<>(1);
+            idProxyCache.put(forClass.getName(), idProxy);
+        }
+        return idProxy;
     }
 
     public static class Builder {
@@ -109,8 +107,7 @@ public final class Inquiry {
             newInstance.cacheIdFields = true;
         }
 
-        @NonNull
-        public Builder instanceName(@Nullable String name) {
+        @NonNull public Builder instanceName(@Nullable String name) {
             newInstance.instanceName = name;
             return this;
         }
@@ -121,25 +118,21 @@ public final class Inquiry {
             return this;
         }
 
-        @NonNull
-        public Builder handler(@Nullable Handler handler) {
+        @NonNull public Builder handler(@Nullable Handler handler) {
             newInstance.handler = handler;
             return this;
         }
 
-        @NonNull
-        public Builder cacheIdFields(boolean cache) {
+        @NonNull public Builder cacheIdFields(boolean cache) {
             newInstance.cacheIdFields = cache;
             return this;
         }
 
-        @NonNull
-        public Inquiry build() {
+        @NonNull public Inquiry build() {
             return build(true);
         }
 
-        @NonNull
-        public Inquiry build(boolean persist) {
+        @NonNull public Inquiry build(boolean persist) {
             final String name = newInstance.instanceName;
             if (used)
                 throw new IllegalStateException("This Builder was already used to build instance " + name);
@@ -190,9 +183,9 @@ public final class Inquiry {
             databaseHelper.close();
             databaseHelper = null;
         }
-        if (idFieldCache != null) {
-            idFieldCache.clear();
-            idFieldCache = null;
+        if (idProxyCache != null) {
+            idProxyCache.clear();
+            idProxyCache = null;
         }
         if (instanceName != null) {
             if (instances != null)
@@ -222,7 +215,7 @@ public final class Inquiry {
 
     public void dropTable(@NonNull Class<?> rowCls) {
         SQLiteDatabase db = new SQLiteHelper(context, databaseName, databaseVersion).getWritableDatabase();
-        db.execSQL("DROP TABLE IF EXISTS " + ClassRowConverter.getClassTable(rowCls));
+        db.execSQL("DROP TABLE IF EXISTS " + InquiryConverter.getClassTableName(rowCls));
         db.close();
     }
 
@@ -257,7 +250,7 @@ public final class Inquiry {
     @CheckResult
     @NonNull
     public <RowType> Query<RowType, Integer> select(@NonNull Class<RowType> rowType) {
-        return new Query<>(this, ClassRowConverter.getClassTable(rowType), Query.SELECT, rowType);
+        return new Query<>(this, InquiryConverter.getClassTableName(rowType), Query.SELECT, rowType);
     }
 
     @CheckResult
@@ -276,7 +269,7 @@ public final class Inquiry {
     @CheckResult
     @NonNull
     public <RowType> Query<RowType, Long[]> insert(@NonNull Class<RowType> rowType) {
-        return new Query<>(this, ClassRowConverter.getClassTable(rowType), Query.INSERT, rowType);
+        return new Query<>(this, InquiryConverter.getClassTableName(rowType), Query.INSERT, rowType);
     }
 
     @CheckResult
@@ -295,7 +288,7 @@ public final class Inquiry {
     @CheckResult
     @NonNull
     public <RowType> Query<RowType, Integer> update(@NonNull Class<RowType> rowType) {
-        return new Query<>(this, ClassRowConverter.getClassTable(rowType), Query.UPDATE, rowType);
+        return new Query<>(this, InquiryConverter.getClassTableName(rowType), Query.UPDATE, rowType);
     }
 
     @CheckResult
@@ -314,7 +307,7 @@ public final class Inquiry {
     @CheckResult
     @NonNull
     public <RowType> Query<RowType, Integer> delete(@NonNull Class<RowType> rowType) {
-        return new Query<>(this, ClassRowConverter.getClassTable(rowType), Query.DELETE, rowType);
+        return new Query<>(this, InquiryConverter.getClassTableName(rowType), Query.DELETE, rowType);
     }
 
     @CheckResult

@@ -6,6 +6,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 
 import com.afollestad.inquiry.Inquiry;
+import com.facebook.stetho.Stetho;
 
 /**
  * @author Aidan Follestad (afollestad)
@@ -15,9 +16,10 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Stetho.initializeWithDefaults(this);
 
         // :memory uses in-memory DB which only persists until the app closes. No file saving.
-        Inquiry.newInstance(this, ":memory")
+        Inquiry.newInstance(this, "test_db")
                 .build();
         query();
     }

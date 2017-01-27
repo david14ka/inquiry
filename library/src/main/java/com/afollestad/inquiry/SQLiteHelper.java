@@ -18,7 +18,7 @@ class SQLiteHelper extends SQLiteOpenHelper {
     void createTableIfNecessary(String name, Class<?> rowCls) {
         lastTableName = name;
         try {
-            String columns = ClassRowConverter.getClassSchema(rowCls);
+            String columns = InquiryConverter.getClassSchema(rowCls);
             String createStatement = String.format("CREATE TABLE IF NOT EXISTS %s (%s);", name, columns);
             getWritableDatabase().execSQL(createStatement);
         } catch (Exception e) {

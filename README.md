@@ -258,8 +258,8 @@ Person result = Inquiry.get(this)
     .first();
 ```
 
-Behind the scenes, it's using `where(String)` to select the row. `atPosition()` moves to a row position 
-and retrieves the row's `_id` column. So, tables need to have an `_id` column (which is unique for every row) 
+Behind the scenes, it's using `where(String)` to select the row. `atPosition()` moves to a row position
+and retrieves the row's `_id` column. So, tables need to have an `_id` column (which is unique for every row)
 for this method to work. `atPosition(int)` can even be used when updating or deleting, not just for selection.
 
 ---
@@ -454,7 +454,7 @@ Inquiry.get(this)
     });
 ```
 
-If your row class contains a field called `_id` with `autoIncrement` set to true, this field will 
+If your row class contains a field called `_id` with `autoIncrement` set to true, this field will
 automatically be updated to a newly inserted row ID.
 
 # Updating Rows
