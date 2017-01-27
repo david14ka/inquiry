@@ -33,7 +33,8 @@ dependencies {
 1. [Quick Setup](https://github.com/afollestad/inquiry#quick-setup)
 2. [Instances](https://github.com/afollestad/inquiry#instances)
 3. [Row Objects](https://github.com/afollestad/inquiry#row-objects)
-4. [Querying Rows](https://github.com/afollestad/inquiry#querying-rows)
+4. [Getter and Setter Methods](https://github.com/afollestad/inquiry#getter-and-setter-methods)
+5. [Querying Rows](https://github.com/afollestad/inquiry#querying-rows)
     1. [Basics](https://github.com/afollestad/inquiry#basics)
     2. [Where](https://github.com/afollestad/inquiry#where)
     2. [Where In and Where Not In](https://github.com/afollestad/inquiry#where-in-and-where-not-in)
@@ -42,16 +43,16 @@ dependencies {
     5. [Projection](https://github.com/afollestad/inquiry#projection)
     6. [Sorting and Limiting](https://github.com/afollestad/inquiry#sorting-and-limiting)
     7. [Any and None Predicates](https://github.com/afollestad/inquiry#any-and-none-predicates)
-5. [Inserting Rows](https://github.com/afollestad/inquiry#inserting-rows)
-6. [Updating Rows](https://github.com/afollestad/inquiry#updating-rows)
+6. [Inserting Rows](https://github.com/afollestad/inquiry#inserting-rows)
+7. [Updating Rows](https://github.com/afollestad/inquiry#updating-rows)
     1. [Basics](https://github.com/afollestad/inquiry#basics-1)
     2. [Projection](https://github.com/afollestad/inquiry#projection-1)
     3. [Updating Individual Row Objects](https://github.com/afollestad/inquiry#updating-individual-row-objects)
-7. [Deleting Rows](https://github.com/afollestad/inquiry#deleting-rows)
-8. [Dropping Tables](https://github.com/afollestad/inquiry#dropping-tables)
-9. [ForeignKey Annotation](https://github.com/afollestad/inquiry#foreignkey-annotation)
-10. [Lazy Loading Children](https://github.com/afollestad/inquiry#lazy-loading-children)
-11. [Extra: Accessing Content Providers](https://github.com/afollestad/inquiry#extra-accessing-content-providers)
+8. [Deleting Rows](https://github.com/afollestad/inquiry#deleting-rows)
+9. [Dropping Tables](https://github.com/afollestad/inquiry#dropping-tables)
+10. [ForeignKey Annotation](https://github.com/afollestad/inquiry#foreignkey-annotation)
+11. [Lazy Loading Children](https://github.com/afollestad/inquiry#lazy-loading-children)
+12. [Extra: Accessing Content Providers](https://github.com/afollestad/inquiry#extra-accessing-content-providers)
     1. [Setup](https://github.com/afollestad/inquiry#setup)
     2. [Basics](https://github.com/afollestad/inquiry#basics-2)
 
@@ -173,6 +174,117 @@ table can have the same value for that specific column. This is commonly used wi
 * `autoIncrement` indicates that you don't manually set the value of this column. Every time
 you insert a row into the table, this column will be incremented by one automatically. This can
 only be used with INTEGER columns (short, int, or long fields), however.
+
+---
+
+# Getter and Setter Methods
+
+You saw that Inquiry can read and write fields to and from databases above. Inquiry also supports
+reading and writing properties via methods.
+
+```java
+@Table public class Person {
+
+    private long id;
+    private String name;
+    private int age;
+    private float rank;
+    private boolean admin;
+
+    public Person() {
+        // Default constructor is needed so Inquiry can auto construct instances
+    }
+
+    public Person(String name, int age, float rank, boolean admin, Person spouse) {
+        this.name = name;
+        this.age = age;
+        this.rank = rank;
+        this.admin = admin;
+        this.spouse = spouse;
+    }
+
+    @Column(name = "_id", primaryKey = true, notNull = true, autoIncrement = true)
+    public long getId() {
+        return id;
+    }
+
+    public void setId(long id) {
+        this.id = id;
+    }
+
+    @Column public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    @Column public int getAge() {
+        return age;
+    }
+
+    public void setAge(int age) {
+        return age;
+    }
+
+    @Column public float getRank() {
+        return rank;
+    }
+
+    public void setRank(float rank) {
+        this.rank = rank;
+    }
+
+    @Column public boolean getAdmin() {
+        return admin;
+    }
+
+    public void setAdmin(boolean admin) {
+        this.admin = admin;
+    }
+}
+```
+
+We used `get`/`set` prefixes here. If you prefix a getter with `get`, you must prefix the setter
+ with `set` too. You can however completely omit `get`/`set` altogether, as long as you do it for
+ both the getter and setter.
+
+```java
+@Table public class Person {
+
+    private long id;
+    private String name;
+
+    public Person() {
+        // Default constructor is needed so Inquiry can auto construct instances
+    }
+
+    public Person(String name) {
+        this.name = name;
+    }
+
+    @Column(name = "_id", primaryKey = true, notNull = true, autoIncrement = true)
+    public long id() {
+        return id;
+    }
+
+    public void id(long id) {
+        this.id = id;
+    }
+
+    @Column public String name() {
+        return name;
+    }
+
+    public void name(String name) {
+        this.name = name;
+    }
+}
+```
+
+**Note**: if you don't include a setter method for a getter method, Inquiry will go straight to
+using the field to set values, while continuing to use the getter method to retrieve them.
 
 ---
 
