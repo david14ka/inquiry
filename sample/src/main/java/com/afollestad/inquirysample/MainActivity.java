@@ -19,8 +19,9 @@ public class MainActivity extends AppCompatActivity {
         Stetho.initializeWithDefaults(this);
 
         // :memory uses in-memory DB which only persists until the app closes. No file saving.
-        Inquiry.newInstance(this, "test_db")
+        Inquiry.newInstance(this, "forStetho")
                 .build();
+        Inquiry.get(this).dropTable(Parent.class);
         query();
     }
 

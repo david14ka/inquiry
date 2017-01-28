@@ -443,11 +443,10 @@ public class Query<RowType, RunReturn> {
         }
 
         final ContentResolver cr = inquiryInstance.context.getContentResolver();
-        final List<FieldDelegate> clsProxies = Converter.
-                classFieldDelegates(rowClass);
+        final List<FieldDelegate> clsProxies = Converter.classFieldDelegates(rowClass);
         if (tableName == null)
             throw new IllegalStateException("The table name cannot be null.");
-        FieldDelegate rowIdProxy = inquiryInstance.getIdProxy(rowClass);
+        FieldDelegate rowIdProxy = inquiryInstance.getIdDelegate(rowClass);
 
         try {
             switch (queryType) {
@@ -613,7 +612,7 @@ public class Query<RowType, RunReturn> {
                 ForeignKey fkAnn = proxy.getForeignKey();
                 if (fkAnn != null) {
                     try {
-                        FieldDelegate rowIdProxy = inquiryInstance.getIdProxy(rowClass);
+                        FieldDelegate rowIdProxy = inquiryInstance.getIdDelegate(rowClass);
                         if (rowIdProxy == null)
                             throw new IllegalStateException("No _id column field found in " + rowClass);
                         Class<?> listGenericType = Utils.getGenericTypeOfProxy(proxy);
@@ -653,8 +652,8 @@ public class Query<RowType, RunReturn> {
             }
 
             Class<?> listGenericType = Utils.getGenericTypeOfProxy(proxy);
-            FieldDelegate rowIdProxy = inquiryInstance.getIdProxy(row.getClass());
-            FieldDelegate foreignKeyIdProxy = inquiryInstance.getIdProxy(listGenericType);
+            FieldDelegate rowIdProxy = inquiryInstance.getIdDelegate(row.getClass());
+            FieldDelegate foreignKeyIdProxy = inquiryInstance.getIdDelegate(listGenericType);
             FieldDelegate foreignKeyProxy = Converter.getProxyByName(
                     Converter.classFieldDelegates(listGenericType),
                     fkAnn.foreignColumnName(), Long.class, long.class);

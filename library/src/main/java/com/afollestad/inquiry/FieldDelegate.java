@@ -129,7 +129,7 @@ final class FieldDelegate {
     }
 
     @SuppressWarnings("ConstantConditions") boolean ignore() {
-        return !isId() && !isForeignKey() && getColumn() == null;
+        return !isId() && getColumn() == null && getForeignKey() == null;
     }
 
     boolean isForeignKey() {

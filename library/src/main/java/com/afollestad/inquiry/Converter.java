@@ -96,8 +96,7 @@ class Converter {
             fieldType = List.class;
         }
 
-        final Class<?> builderCls = inquiry.getBuilderClass(fieldType);
-        final FieldDelegate idProxy = inquiry.getIdProxy(row.getClass());
+        final FieldDelegate idProxy = inquiry.getIdDelegate(row.getClass());
         if (idProxy == null) {
             throw new IllegalStateException("You cannot use the @ForeignKey annotation " +
                     "on a field within a class that doesn't have an _id column.");
@@ -169,8 +168,8 @@ class Converter {
                 return;
             }
 
-            Object value = processForeignKey(query.getInquiryInstance(), fkAnn.tableName(), fkAnn.foreignColumnName(),
-                    fkAnn.inverseFieldName(), row, fieldType, childType);
+            Object value = processForeignKey(query.getInquiryInstance(), fkAnn.tableName(),
+                    fkAnn.foreignColumnName(), fkAnn.inverseFieldName(), row, fieldType, childType);
             proxy.set(row, value);
             return;
         }
@@ -257,14 +256,9 @@ class Converter {
         }
     }
 
-    private static HashMap<String, FieldDelegate> buildProxyCache(Class<?> cls,
-                                                                  List<FieldDelegate> outForeignKeys) {
-        return buildProxyCache(cls, null, outForeignKeys);
-    }
-
-    private static HashMap<String, FieldDelegate> buildProxyCache(Class<?> cls,
-                                                                  Class<?> builderCls,
-                                                                  List<FieldDelegate> outForeignKeys) {
+    private static HashMap<String, FieldDelegate> buildProxyCache(@NonNull Class<?> cls,
+                                                                  @Nullable Class<?> builderCls,
+                                                                  @NonNull List<FieldDelegate> outForeignKeys) {
         final HashMap<String, FieldDelegate> cacheMap = new HashMap<>();
         final List<FieldDelegate> proxiesList = classFieldDelegates(cls, false, builderCls);
 

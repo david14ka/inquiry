@@ -60,7 +60,7 @@ public class Inquiry extends InquiryBase {
         this.databaseVersion = 1;
     }
 
-    @Nullable FieldDelegate getIdProxy(Class<?> forClass) {
+    @Nullable FieldDelegate getIdDelegate(Class<?> forClass) {
         FieldDelegate idProxy = getIdProxyCache().get(forClass.getName());
         if (idProxy != null) return idProxy;
 
