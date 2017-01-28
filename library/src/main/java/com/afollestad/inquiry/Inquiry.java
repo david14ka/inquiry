@@ -11,20 +11,21 @@ import android.support.annotation.Nullable;
 import android.util.Log;
 
 import com.afollestad.inquiry.annotations.Column;
+import com.afollestad.inquiry.annotations.RowBuilder;
 
+import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.List;
 
-import static com.afollestad.inquiry.InquiryConverter.classColumnProxies;
+import static com.afollestad.inquiry.Converter.classFieldDelegates;
 
 /**
  * @author Aidan Follestad (afollestad)
  */
 @SuppressWarnings("WeakerAccess")
-public final class Inquiry {
+public class Inquiry extends InquiryBase {
 
     private static HashMap<String, Inquiry> instances;
-    private HashMap<String, ClassColumnProxy> idProxyCache;
 
     private static String getInstanceName(@NonNull Context forContext) {
         return forContext.getClass().getName();
@@ -39,7 +40,6 @@ public final class Inquiry {
     Context context;
     Handler handler;
     @Nullable String databaseName;
-    boolean cacheIdFields;
     private int databaseVersion = 1;
     private String instanceName;
     private SQLiteHelper databaseHelper;
@@ -54,24 +54,18 @@ public final class Inquiry {
     }
 
     Inquiry(@NonNull Context context) {
-        //noinspection ConstantConditions
-        if (context == null)
-            throw new IllegalArgumentException("Context can't be null.");
+        super(context);
         this.context = context;
-        instanceName = getInstanceName(context);
-        databaseVersion = 1;
-        idProxyCache = new HashMap<>();
+        this.instanceName = getInstanceName(context);
+        this.databaseVersion = 1;
     }
 
-    @Nullable ClassColumnProxy getIdProxy(Class<?> forClass) {
-        ClassColumnProxy idProxy = null;
-        if (cacheIdFields && idProxyCache != null) {
-            idProxy = idProxyCache.get(forClass.getName());
-            if (idProxy != null) return idProxy;
-        }
+    @Nullable FieldDelegate getIdProxy(Class<?> forClass) {
+        FieldDelegate idProxy = getIdProxyCache().get(forClass.getName());
+        if (idProxy != null) return idProxy;
 
-        List<ClassColumnProxy> allProxiesList = classColumnProxies(forClass);
-        for (ClassColumnProxy proxy : allProxiesList) {
+        List<FieldDelegate> allProxiesList = classFieldDelegates(forClass);
+        for (FieldDelegate proxy : allProxiesList) {
             if (proxy.isId()) {
                 Column columnAnnotation = proxy.getColumn();
                 if (!columnAnnotation.autoIncrement() || !columnAnnotation.primaryKey())
@@ -84,12 +78,44 @@ public final class Inquiry {
         if (idProxy == null) {
             return null;
         }
-        if (cacheIdFields) {
-            if (idProxyCache == null)
-                idProxyCache = new HashMap<>(1);
-            idProxyCache.put(forClass.getName(), idProxy);
-        }
+
+        getIdProxyCache().put(forClass.getName(), idProxy);
         return idProxy;
+    }
+
+    @Nullable Class<?> getBuilderClass(Class<?> parent) {
+        Class<?> cls = getBuilderClassCache().get(parent.getName());
+        if (cls != null) {
+            return cls;
+        }
+        for (Class<?> declaredClass : parent.getDeclaredClasses()) {
+            if (declaredClass.getSimpleName().equals("Builder")) {
+                cls = declaredClass;
+            }
+            if (declaredClass.getAnnotation(RowBuilder.class) != null) {
+                getBuilderClassCache().put(parent.getName(), declaredClass);
+                cls = declaredClass;
+                break;
+            }
+        }
+        return cls;
+    }
+
+    @Nullable Method getBuildMethod(Class<?> parentCls, Class<?> builder) {
+        if (getBuildMethodCache() != null) {
+            Method cls = getBuildMethodCache().get(builder.getName());
+            if (cls != null) return cls;
+        }
+        for (Method method : builder.getDeclaredMethods()) {
+            if (method.getName().equals("build") &&
+                    (method.getParameterTypes() == null ||
+                            method.getParameterTypes().length == 0) &&
+                    method.getReturnType() == parentCls) {
+                getBuildMethodCache().put(builder.getName(), method);
+                return method;
+            }
+        }
+        return null;
     }
 
     public static class Builder {
@@ -104,7 +130,6 @@ public final class Inquiry {
                 LOG("Using default database name: %s", databaseName);
             }
             newInstance.databaseName = databaseName;
-            newInstance.cacheIdFields = true;
         }
 
         @NonNull public Builder instanceName(@Nullable String name) {
@@ -120,11 +145,6 @@ public final class Inquiry {
 
         @NonNull public Builder handler(@Nullable Handler handler) {
             newInstance.handler = handler;
-            return this;
-        }
-
-        @NonNull public Builder cacheIdFields(boolean cache) {
-            newInstance.cacheIdFields = cache;
             return this;
         }
 
@@ -178,14 +198,11 @@ public final class Inquiry {
         return context == null;
     }
 
-    public void destroyInstance() {
+    @Override public void destroyInstance() {
+        super.destroyInstance();
         if (databaseHelper != null) {
             databaseHelper.close();
             databaseHelper = null;
-        }
-        if (idProxyCache != null) {
-            idProxyCache.clear();
-            idProxyCache = null;
         }
         if (instanceName != null) {
             if (instances != null)
@@ -215,7 +232,7 @@ public final class Inquiry {
 
     public void dropTable(@NonNull Class<?> rowCls) {
         SQLiteDatabase db = new SQLiteHelper(context, databaseName, databaseVersion).getWritableDatabase();
-        db.execSQL("DROP TABLE IF EXISTS " + InquiryConverter.getClassTableName(rowCls));
+        db.execSQL("DROP TABLE IF EXISTS " + Converter.getClassTableName(rowCls));
         db.close();
     }
 
@@ -250,7 +267,7 @@ public final class Inquiry {
     @CheckResult
     @NonNull
     public <RowType> Query<RowType, Integer> select(@NonNull Class<RowType> rowType) {
-        return new Query<>(this, InquiryConverter.getClassTableName(rowType), Query.SELECT, rowType);
+        return new Query<>(this, Converter.getClassTableName(rowType), Query.SELECT, rowType);
     }
 
     @CheckResult
@@ -269,7 +286,7 @@ public final class Inquiry {
     @CheckResult
     @NonNull
     public <RowType> Query<RowType, Long[]> insert(@NonNull Class<RowType> rowType) {
-        return new Query<>(this, InquiryConverter.getClassTableName(rowType), Query.INSERT, rowType);
+        return new Query<>(this, Converter.getClassTableName(rowType), Query.INSERT, rowType);
     }
 
     @CheckResult
@@ -288,7 +305,7 @@ public final class Inquiry {
     @CheckResult
     @NonNull
     public <RowType> Query<RowType, Integer> update(@NonNull Class<RowType> rowType) {
-        return new Query<>(this, InquiryConverter.getClassTableName(rowType), Query.UPDATE, rowType);
+        return new Query<>(this, Converter.getClassTableName(rowType), Query.UPDATE, rowType);
     }
 
     @CheckResult
@@ -307,7 +324,7 @@ public final class Inquiry {
     @CheckResult
     @NonNull
     public <RowType> Query<RowType, Integer> delete(@NonNull Class<RowType> rowType) {
-        return new Query<>(this, InquiryConverter.getClassTableName(rowType), Query.DELETE, rowType);
+        return new Query<>(this, Converter.getClassTableName(rowType), Query.DELETE, rowType);
     }
 
     @CheckResult

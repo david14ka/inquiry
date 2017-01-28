@@ -10,6 +10,7 @@ import com.afollestad.inquiry.lazyloading.LazyLoaderList;
 import java.io.Closeable;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Modifier;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.List;
@@ -21,8 +22,9 @@ class Utils {
 
     @SuppressWarnings("unchecked")
     @CheckResult
-    static <T> T newInstance(@NonNull Class<T> cls) {
-        final Constructor ctor = getDefaultConstructor(cls);
+    static <T> T newInstance(@NonNull Inquiry inquiry,
+                             @NonNull Class<T> cls) {
+        final Constructor ctor = getDefaultConstructor(inquiry, cls);
         try {
             return (T) ctor.newInstance();
         } catch (Throwable t) {
@@ -31,20 +33,40 @@ class Utils {
     }
 
     @CheckResult
-    private static Constructor<?> getDefaultConstructor(@NonNull Class<?> cls) {
-        final Constructor[] ctors = cls.getDeclaredConstructors();
-        Constructor ctor = null;
-        for (Constructor ct : ctors) {
+    private static Constructor<?> getDefaultConstructor(@NonNull Inquiry inquiry,
+                                                        @NonNull Class<?> cls) {
+        if (Modifier.isAbstract(cls.getModifiers())) {
+            String name = cls.getName();
+            int lastPeriod = name.lastIndexOf('.');
+            String first = name.substring(0, lastPeriod + 1);
+            String second = name.substring(lastPeriod + 1);
+            String autoValueName = first + "AutoValue_" + second;
+            try {
+                cls = Class.forName(autoValueName);
+            } catch (ClassNotFoundException e) {
+                throw new IllegalStateException("Inquiry cannot construct abstract classes unless they're a top-level AutoValue class!");
+            }
+        }
+
+        Constructor<?> cachedConstructor = inquiry.getConstructorCache().get(cls.getName());
+        if (cachedConstructor != null) return cachedConstructor;
+
+        final Constructor[] constructorArray = cls.getDeclaredConstructors();
+        Constructor constructor = null;
+        for (Constructor ct : constructorArray) {
             if (ct.getParameterTypes() != null && ct.getParameterTypes().length != 0)
                 continue;
-            ctor = ct;
-            if (ctor.getGenericParameterTypes().length == 0)
+            constructor = ct;
+            if (constructor.getGenericParameterTypes().length == 0)
                 break;
         }
-        if (ctor == null)
+        if (constructor == null)
             throw new IllegalStateException("No default constructor found for " + cls.getName());
-        ctor.setAccessible(true);
-        return ctor;
+
+        constructor.setAccessible(true);
+        inquiry.getConstructorCache().put(cls.getName(), constructor);
+
+        return constructor;
     }
 
     static void closeQuietely(@Nullable Closeable c) {
@@ -127,7 +149,7 @@ class Utils {
         return fullName;
     }
 
-    static Class<?> getGenericTypeOfField(ClassColumnProxy proxy) {
+    static Class<?> getGenericTypeOfProxy(FieldDelegate proxy) {
         if (proxy.getType().isArray()) {
             return proxy.getType().getComponentType();
         } else if (classImplementsList(proxy.getType())) {

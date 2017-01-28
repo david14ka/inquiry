@@ -37,7 +37,7 @@ import static com.afollestad.inquiry.DataType.UNKNOWN;
 /**
  * @author Aidan Follestad (afollestad)
  */
-class InquiryConverter {
+class Converter {
 
     static String getClassTableName(Class<?> cls) {
         Table tableAnn = cls.getAnnotation(Table.class);
@@ -51,9 +51,9 @@ class InquiryConverter {
 
     static String getClassSchema(Class<?> cls) {
         StringBuilder sb = new StringBuilder();
-        List<ClassColumnProxy> proxyList = classColumnProxies(cls);
+        List<FieldDelegate> proxyList = classFieldDelegates(cls);
 
-        for (ClassColumnProxy proxy : proxyList) {
+        for (FieldDelegate proxy : proxyList) {
             final String schema = proxy.schema();
             if (schema == null) continue;
             if (sb.length() > 0) sb.append(", ");
@@ -92,15 +92,17 @@ class InquiryConverter {
     private static Object processForeignKey(@NonNull Inquiry inquiry, @NonNull String tableName,
                                             @NonNull String foreignColumnName, @Nullable String inverseFieldName,
                                             @NonNull Object row, @Nullable Class<?> fieldType, @NonNull Class<?> childType) {
-        if (fieldType == null)
+        if (fieldType == null) {
             fieldType = List.class;
+        }
 
-        ClassColumnProxy idProxy = inquiry.getIdProxy(row.getClass());
+        final Class<?> builderCls = inquiry.getBuilderClass(fieldType);
+        final FieldDelegate idProxy = inquiry.getIdProxy(row.getClass());
         if (idProxy == null) {
             throw new IllegalStateException("You cannot use the @ForeignKey annotation " +
                     "on a field within a class that doesn't have an _id column.");
         }
-        Inquiry fkInstance = Inquiry.copy(inquiry, "[@fk]:" + tableName + "//" + foreignColumnName, false);
+        final Inquiry fkInstance = Inquiry.copy(inquiry, "[@fk]:" + tableName + "//" + foreignColumnName, false);
 
         Long rowId = idProxy.get(row);
         Object[] valuesArray = fkInstance
@@ -115,8 +117,8 @@ class InquiryConverter {
         } else {
             if (inverseFieldName != null && !inverseFieldName.isEmpty()) {
                 for (Object val : valuesArray) {
-                    ClassColumnProxy inverseProxy = getProxy(
-                            classColumnProxies(childType), inverseFieldName);
+                    FieldDelegate inverseProxy = getProxyByName(
+                            classFieldDelegates(childType), inverseFieldName);
                     if (inverseProxy == null) {
                         throw new IllegalStateException("Inverse field " +
                                 inverseFieldName + " not found in " + childType);
@@ -143,17 +145,17 @@ class InquiryConverter {
         }
     }
 
-    private static void loadFieldIntoRow(Query query, Cursor cursor, ClassColumnProxy proxy,
+    private static void loadFieldIntoRow(Query query, Cursor cursor, FieldDelegate proxy,
                                          Object row, int columnIndex,
                                          @DataType.TypeDef int columnType) throws Exception {
         Class<?> fieldType = proxy.getType();
         ForeignKey fkAnn = proxy.getForeignKey();
         if (fkAnn != null) {
-            Class<?> childType = Utils.getGenericTypeOfField(proxy);
+            Class<?> childType = Utils.getGenericTypeOfProxy(proxy);
 
             if (Utils.classExtendsLazyLoader(fieldType)) {
                 @SuppressWarnings("unchecked")
-                LazyLoaderList loader = new LazyLoaderList(query.inquiryInstance,
+                LazyLoaderList loader = new LazyLoaderList(query.getInquiryInstance(),
                         fkAnn.tableName(), fkAnn.foreignColumnName(),
                         fkAnn.inverseFieldName(), row, childType) {
                     @SuppressWarnings("unchecked")
@@ -167,7 +169,7 @@ class InquiryConverter {
                 return;
             }
 
-            Object value = processForeignKey(query.inquiryInstance, fkAnn.tableName(), fkAnn.foreignColumnName(),
+            Object value = processForeignKey(query.getInquiryInstance(), fkAnn.tableName(), fkAnn.foreignColumnName(),
                     fkAnn.inverseFieldName(), row, fieldType, childType);
             proxy.set(row, value);
             return;
@@ -255,15 +257,18 @@ class InquiryConverter {
         }
     }
 
-    /**
-     * Avoids the need to loop over fields for every column by caching them ahead of time.
-     */
-    private static HashMap<String, ClassColumnProxy> buildProxyCache(Class<?> cls,
-                                                                     List<ClassColumnProxy> outForeignKeys) {
-        final HashMap<String, ClassColumnProxy> cacheMap = new HashMap<>();
-        final List<ClassColumnProxy> proxiesList = classColumnProxies(cls);
+    private static HashMap<String, FieldDelegate> buildProxyCache(Class<?> cls,
+                                                                  List<FieldDelegate> outForeignKeys) {
+        return buildProxyCache(cls, null, outForeignKeys);
+    }
 
-        for (ClassColumnProxy proxy : proxiesList) {
+    private static HashMap<String, FieldDelegate> buildProxyCache(Class<?> cls,
+                                                                  Class<?> builderCls,
+                                                                  List<FieldDelegate> outForeignKeys) {
+        final HashMap<String, FieldDelegate> cacheMap = new HashMap<>();
+        final List<FieldDelegate> proxiesList = classFieldDelegates(cls, false, builderCls);
+
+        for (FieldDelegate proxy : proxiesList) {
             ForeignKey fkAnn = proxy.getForeignKey();
             if (fkAnn != null) {
                 outForeignKeys.add(proxy);
@@ -276,9 +281,21 @@ class InquiryConverter {
     }
 
     static <T> T cursorToObject(Query query, Cursor cursor, Class<T> cls) {
-        final T row = Utils.newInstance(cls);
-        final List<ClassColumnProxy> foreignKeyList = new ArrayList<>(0);
-        final HashMap<String, ClassColumnProxy> cacheMap = buildProxyCache(cls, foreignKeyList);
+        T resultObject = null;
+        Object rowBuilder = null;
+        Object objectToActOn;
+
+        final Class<?> builderCls = query.getInquiryInstance().getBuilderClass(cls);
+        if (builderCls != null) {
+            rowBuilder = Utils.newInstance(query.getInquiryInstance(), builderCls);
+            objectToActOn = rowBuilder;
+        } else {
+            resultObject = Utils.newInstance(query.getInquiryInstance(), cls);
+            objectToActOn = resultObject;
+        }
+
+        final List<FieldDelegate> foreignKeyList = new ArrayList<>(0);
+        final HashMap<String, FieldDelegate> cacheMap = buildProxyCache(cls, builderCls, foreignKeyList);
 
         int columnIndex;
         for (columnIndex = 0; columnIndex < cursor.getColumnCount(); columnIndex++) {
@@ -287,34 +304,50 @@ class InquiryConverter {
                 throw new IllegalStateException("Cursor returned null for the columnName at index " + columnIndex);
             int columnType = cursorTypeToColumnType(cursor.getType(columnIndex));
             try {
-                final ClassColumnProxy proxy = cacheMap.get(columnName);
-                loadFieldIntoRow(query, cursor, proxy, row, columnIndex, columnType);
-            } catch (NoSuchFieldException e) {
-                throw new IllegalStateException(String.format("No field found in %s for column %s (of type %s)",
-                        cls.getName(), columnName, DataType.name(columnType)));
+                final FieldDelegate proxy = cacheMap.get(columnName);
+                if (proxy == null) {
+                    throw new IllegalStateException("Unable to map database column " + columnName +
+                            " to field/method in " + cls.getName());
+                }
+                loadFieldIntoRow(query, cursor, proxy, objectToActOn, columnIndex, columnType);
             } catch (Exception e) {
                 Utils.wrapInReIfNecessary(e);
             }
         }
 
         if (foreignKeyList.size() > 0) {
-            for (ClassColumnProxy proxy : foreignKeyList) {
+            for (FieldDelegate proxy : foreignKeyList) {
                 try {
-                    loadFieldIntoRow(query, cursor, proxy, row, columnIndex, UNKNOWN);
+                    loadFieldIntoRow(query, cursor, proxy, objectToActOn, columnIndex, UNKNOWN);
                 } catch (Throwable t) {
                     Utils.wrapInReIfNecessary(t);
                 }
             }
         }
 
-        return row;
+        if (rowBuilder != null) {
+            Method buildMethod = query.getInquiryInstance().getBuildMethod(cls, builderCls);
+            if (buildMethod == null) {
+                throw new IllegalStateException("Builder " + builderCls.getName() + " must " +
+                        "contain a void method called build() which returns " + cls.getName());
+            }
+            try {
+                //noinspection unchecked
+                return (T) buildMethod.invoke(rowBuilder);
+            } catch (Exception e) {
+                throw new IllegalStateException("Failed to invoke build() of " +
+                        builderCls.getName(), e);
+            }
+        } else {
+            return resultObject;
+        }
     }
 
-    @Nullable static ClassColumnProxy getProxy(@Nullable List<ClassColumnProxy> proxyList,
-                                               @NonNull String name,
-                                               @Nullable Class<?>... requiredTypes) {
+    @Nullable static FieldDelegate getProxyByName(@Nullable List<FieldDelegate> proxyList,
+                                                  @NonNull String name,
+                                                  @Nullable Class<?>... requiredTypes) {
         if (proxyList == null || proxyList.size() == 0) return null;
-        for (ClassColumnProxy proxy : proxyList) {
+        for (FieldDelegate proxy : proxyList) {
             if (requiredTypes != null && requiredTypes.length > 0) {
                 boolean matchesOneRequiredType = false;
                 for (Class<?> cls : requiredTypes) {
@@ -330,36 +363,62 @@ class InquiryConverter {
         return null;
     }
 
-    static String[] generateProjection(Class<?> cls) {
+    static String[] generateProjection(@NonNull Class<?> cls) {
         ArrayList<String> projectionList = new ArrayList<>();
-        List<ClassColumnProxy> proxyList = classColumnProxies(cls);
-        for (ClassColumnProxy proxy : proxyList) {
+        List<FieldDelegate> proxyList = classFieldDelegates(cls);
+        for (FieldDelegate proxy : proxyList) {
             if (proxy.isForeignKey() || proxy.ignore()) continue;
             projectionList.add(proxy.name());
         }
         return projectionList.toArray(new String[projectionList.size()]);
     }
 
-    static List<ClassColumnProxy> classColumnProxies(Class<?> cls) {
-        List<ClassColumnProxy> proxiesList = new ArrayList<>();
-        while (true) {
-            for (Field field : cls.getDeclaredFields()) {
-                ClassColumnProxy proxy = new ClassColumnProxy(field, null, cls);
-                if (proxy.ignore()) continue;
-                proxiesList.add(proxy);
-            }
-            for (Method method : cls.getDeclaredMethods()) {
-                if (method.getParameterTypes() != null && method.getParameterTypes().length > 0) {
-                    // Ignore setter methods at this point
+    static List<FieldDelegate> classFieldDelegates(@NonNull Class<?> cls) {
+        return classFieldDelegates(cls, false);
+    }
+
+    static List<FieldDelegate> classFieldDelegates(@NonNull Class<?> cls,
+                                                   boolean methodsOnly) {
+        return classFieldDelegates(cls, methodsOnly, null);
+    }
+
+    static List<FieldDelegate> classFieldDelegates(@NonNull Class<?> cls,
+                                                   boolean methodsOnly,
+                                                   @Nullable Class<?> builderCls) {
+        final List<FieldDelegate> proxiesList = new ArrayList<>(8);
+        if (builderCls != null) {
+            for (Method method : builderCls.getDeclaredMethods()) {
+                if (method.getParameterTypes() == null ||
+                        method.getParameterTypes().length == 0) {
+                    // Ignore methods without parameters
                     continue;
                 }
-                ClassColumnProxy proxy = new ClassColumnProxy(null, method, cls);
+                FieldDelegate proxy = new FieldDelegate(cls, builderCls, method);
                 if (proxy.ignore()) continue;
                 proxiesList.add(proxy);
             }
-            cls = cls.getSuperclass();
-            if (cls == null) {
-                break;
+        } else {
+            while (true) {
+                if (!methodsOnly) {
+                    for (Field field : cls.getDeclaredFields()) {
+                        FieldDelegate proxy = new FieldDelegate(field, null, cls);
+                        if (proxy.ignore()) continue;
+                        proxiesList.add(proxy);
+                    }
+                }
+                for (Method method : cls.getDeclaredMethods()) {
+                    if (method.getParameterTypes() != null && method.getParameterTypes().length > 0) {
+                        // Ignore setter methods at this point
+                        continue;
+                    }
+                    FieldDelegate proxy = new FieldDelegate(null, method, cls);
+                    if (proxy.ignore()) continue;
+                    proxiesList.add(proxy);
+                }
+                cls = cls.getSuperclass();
+                if (cls == null) {
+                    break;
+                }
             }
         }
         return proxiesList;
@@ -367,12 +426,12 @@ class InquiryConverter {
 
     @Nullable static RowValues classToValues(@NonNull Object row,
                                              @Nullable String[] projectionArray,
-                                             @NonNull List<ClassColumnProxy> proxiesList,
-                                             @NonNull Map<Object, ClassColumnProxy> foreignChildrenMap) {
+                                             @NonNull List<FieldDelegate> proxiesList,
+                                             @NonNull Map<Object, FieldDelegate> foreignChildrenMap) {
         try {
             RowValues resultValues = new RowValues();
             int columnCount = 0;
-            for (ClassColumnProxy proxy : proxiesList) {
+            for (FieldDelegate proxy : proxiesList) {
                 if (projectionArray != null && projectionArray.length > 0) {
                     boolean skip = true;
                     for (String projectionValue : projectionArray) {

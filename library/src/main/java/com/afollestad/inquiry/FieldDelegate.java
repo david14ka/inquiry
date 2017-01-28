@@ -13,15 +13,46 @@ import java.lang.reflect.Type;
 /**
  * @author Aidan Follestad (afollestad)
  */
-final class ClassColumnProxy {
+final class FieldDelegate {
 
     @Nullable private Field field;
     @Nullable private Method getterMethod;
     @Nullable private Method setterMethod;
 
-    ClassColumnProxy(@Nullable Field field,
-                     @Nullable Method method,
-                     @NonNull Class<?> rowType) {
+    // We're acting on a Builder class
+    FieldDelegate(@NonNull Class<?> parentCls,
+                  @NonNull Class<?> builderCls,
+                  @NonNull Method setterMethod) {
+        if (setterMethod.getReturnType() != builderCls) {
+            throw new IllegalStateException("Builder setter methods must return the Builder instance.");
+        }
+        if (setterMethod.getParameterTypes() == null || setterMethod.getParameterTypes().length != 1) {
+            throw new IllegalStateException("Builder setter methods must only have 1 parameter.");
+        }
+        this.setterMethod = setterMethod;
+
+        String targetGetterName = setterMethod.getName();
+        if (targetGetterName.startsWith("set"))
+            targetGetterName = targetGetterName.substring(3);
+        final String expectedSignature = setterMethod.getParameterTypes()[0].getName() +
+                " " + targetGetterName + "()";
+
+        try {
+            this.getterMethod = parentCls.getDeclaredMethod(targetGetterName);
+            if (this.getterMethod.getReturnType() != setterMethod.getParameterTypes()[0]) {
+                throw new IllegalStateException("Getter " + getterMethod.getName() + "() must return " +
+                        setterMethod.getParameterTypes()[0].getName() + " to match the Builder method.");
+            }
+        } catch (NoSuchMethodException e) {
+            throw new IllegalStateException(parentCls.getName() + " must contain a getter method of " +
+                    "signature " + expectedSignature + " to match the Builder setter method.");
+        }
+    }
+
+    // We're acting on a Row class
+    FieldDelegate(@Nullable Field field,
+                  @Nullable Method method,
+                  @NonNull Class<?> rowType) {
         if (field == null && method == null)
             throw new IllegalStateException("Both the given field and method are null.");
 

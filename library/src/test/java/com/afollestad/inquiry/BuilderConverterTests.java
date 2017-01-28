@@ -6,6 +6,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.runners.MockitoJUnitRunner;
 
+import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,13 +22,19 @@ import static org.mockito.Mockito.when;
  * @author Aidan Follestad (afollestad)
  */
 @RunWith(MockitoJUnitRunner.class)
-public class SetterMethodConverterTests extends BaseTest {
+public class BuilderConverterTests extends BaseTest {
 
     @Test public void test_basic_row_to_values() {
-        SetterRow row = new SetterRow("afollestad", 21, true, 100f);
+        BuilderRow row = BuilderRow.create()
+                .username("afollestad")
+                .age(21)
+                .online(true)
+                .rank(100f)
+                .build();
 
         Map<Object, FieldDelegate> foreignChildrenMap = new HashMap<>(0);
-        List<FieldDelegate> proxiesList = Converter.classFieldDelegates(row.getClass());
+        List<FieldDelegate> proxiesList = Converter.classFieldDelegates(
+                row.getClass(), false, BuilderRow.Builder.class);
         RowValues values = Converter.classToValues(row, null, proxiesList, foreignChildrenMap);
 
         assertEquals(foreignChildrenMap.size(), 0);
@@ -43,7 +50,7 @@ public class SetterMethodConverterTests extends BaseTest {
         assertEquals(values.getFloat("rank"), 100f);
     }
 
-    @Test public void test_cursor_to_row() {
+    @Test public void test_cursor_to_row() throws Exception {
         Cursor mockCursor = mock(Cursor.class);
         when(mockCursor.getColumnCount()).thenReturn(5);
 
@@ -65,7 +72,19 @@ public class SetterMethodConverterTests extends BaseTest {
         when(mockCursor.getColumnName(3)).thenReturn("online");
         when(mockCursor.getColumnName(4)).thenReturn("rank");
 
-        SetterRow row = Converter.cursorToObject(mockQuery, mockCursor, SetterRow.class);
+        Class<?> builderCls = BuilderRow.Builder.class;
+        Method buildMethod = builderCls.getDeclaredMethod("build");
+
+        builderClassCache.put(BuilderRow.class.getName(), builderCls);
+        buildMethodCache.put(builderCls.getName(), buildMethod);
+
+        when(mockInquiry.getBuilderClass(BuilderRow.class))
+                .thenReturn((Class) builderCls);
+        when(mockInquiry.getBuildMethod(BuilderRow.class, builderCls))
+                .thenReturn(buildMethod);
+
+        BuilderRow row = Converter.cursorToObject(mockQuery, mockCursor, BuilderRow.class);
+
         assertEquals(row.id(), 50);
         assertEquals(row.username(), "waverlysummer");
         assertEquals(row.age(), 19);

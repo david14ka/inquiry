@@ -2,9 +2,6 @@ package com.afollestad.inquiry;
 
 import android.database.Cursor;
 
-import com.afollestad.inquiry.annotations.Column;
-import com.afollestad.inquiry.annotations.Table;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.runners.MockitoJUnitRunner;
@@ -24,13 +21,14 @@ import static org.mockito.Mockito.when;
  * @author Aidan Follestad (afollestad)
  */
 @RunWith(MockitoJUnitRunner.class)
-public class BasicConverterTests {
+public class BasicConverterTests extends BaseTest {
 
     @Test public void test_basic_row_to_values() {
         BasicRow row = new BasicRow("afollestad", 21, true, 100f);
-        Map<Object, ClassColumnProxy> foreignChildrenMap = new HashMap<>(0);
-        List<ClassColumnProxy> proxiesList = InquiryConverter.classColumnProxies(row.getClass());
-        RowValues values = InquiryConverter.classToValues(row, null, proxiesList, foreignChildrenMap);
+
+        Map<Object, FieldDelegate> foreignChildrenMap = new HashMap<>(0);
+        List<FieldDelegate> proxiesList = Converter.classFieldDelegates(row.getClass());
+        RowValues values = Converter.classToValues(row, null, proxiesList, foreignChildrenMap);
 
         assertEquals(foreignChildrenMap.size(), 0);
         assertEquals(proxiesList.size(), 5);
@@ -67,7 +65,7 @@ public class BasicConverterTests {
         when(mockCursor.getColumnName(3)).thenReturn("online");
         when(mockCursor.getColumnName(4)).thenReturn("rank");
 
-        BasicRow row = InquiryConverter.cursorToObject(null, mockCursor, BasicRow.class);
+        BasicRow row = Converter.cursorToObject(mockQuery, mockCursor, BasicRow.class);
         assertEquals(row.id, 50);
         assertEquals(row.username, "waverlysummer");
         assertEquals(row.age, 19);

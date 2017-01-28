@@ -30,7 +30,7 @@ import java.util.Locale;
  */
 @SuppressWarnings("WeakerAccess")
 @SuppressLint("DefaultLocale")
-public final class Query<RowType, RunReturn> {
+public class Query<RowType, RunReturn> {
 
     @Retention(RetentionPolicy.SOURCE)
     @IntDef({SELECT, INSERT, UPDATE, DELETE})
@@ -42,7 +42,7 @@ public final class Query<RowType, RunReturn> {
     protected final static int UPDATE = 3;
     protected final static int DELETE = 4;
 
-    protected final Inquiry inquiryInstance;
+    private final Inquiry inquiryInstance;
     private Uri contentUri;
     private String tableName;
     @Nullable private final Class<RowType> rowClass;
@@ -55,7 +55,11 @@ public final class Query<RowType, RunReturn> {
     private int limit;
     private RowType[] values;
 
-    protected HashMap<Object, ClassColumnProxy> foreignChildren;
+    private HashMap<Object, FieldDelegate> foreignChildren;
+
+    Inquiry getInquiryInstance() {
+        return inquiryInstance;
+    }
 
     protected Query(@NonNull Inquiry inquiry, @NonNull Uri contentUri, @QueryType int type, @Nullable Class<RowType> mClass) {
         this.inquiryInstance = inquiry;
@@ -315,32 +319,39 @@ public final class Query<RowType, RunReturn> {
         else if (inquiryInstance.context == null)
             return null;
         if (projection == null)
-            projection = InquiryConverter.generateProjection(rowClass);
+            projection = Converter.generateProjection(rowClass);
 
         String sort = getSort();
-        if (limit > -1) sort += String.format(Locale.getDefault(), " LIMIT %d", limit);
+        if (limit > -1) {
+            sort += String.format(Locale.getDefault(), " LIMIT %d", limit);
+        }
         Cursor cursor;
         if (contentUri != null) {
-            cursor = inquiryInstance.context.getContentResolver().query(contentUri, projection, getWhere(), getWhereArgs(), sort);
+            cursor = inquiryInstance.context.getContentResolver().query(
+                    contentUri, projection, getWhere(), getWhereArgs(), sort);
         } else {
             if (inquiryInstance._getDatabase() == null)
                 throw new IllegalStateException("Database helper was null.");
             else if (tableName == null)
                 throw new IllegalStateException("Table name was null.");
-            cursor = inquiryInstance._getDatabase().query(tableName, projection, getWhere(), getWhereArgs(), sort);
+            cursor = inquiryInstance._getDatabase().query(tableName,
+                    projection, getWhere(), getWhereArgs(), sort);
         }
 
         if (cursor != null) {
             RowType[] results = null;
-            if (cursor.getCount() > 0) {
-                results = (RowType[]) Array.newInstance(rowClass, cursor.getCount());
-                int index = 0;
-                while (cursor.moveToNext()) {
-                    results[index] = InquiryConverter.cursorToObject(this, cursor, rowClass);
-                    index++;
+            try {
+                if (cursor.getCount() > 0) {
+                    results = (RowType[]) Array.newInstance(rowClass, cursor.getCount());
+                    int index = 0;
+                    while (cursor.moveToNext()) {
+                        results[index] = Converter.cursorToObject(this, cursor, rowClass);
+                        index++;
+                    }
                 }
+            } finally {
+                cursor.close();
             }
-            cursor.close();
             return results;
         }
         return null;
@@ -432,10 +443,11 @@ public final class Query<RowType, RunReturn> {
         }
 
         final ContentResolver cr = inquiryInstance.context.getContentResolver();
-        final List<ClassColumnProxy> clsProxies = InquiryConverter.classColumnProxies(rowClass);
+        final List<FieldDelegate> clsProxies = Converter.
+                classFieldDelegates(rowClass);
         if (tableName == null)
             throw new IllegalStateException("The table name cannot be null.");
-        ClassColumnProxy rowIdProxy = inquiryInstance.getIdProxy(rowClass);
+        FieldDelegate rowIdProxy = inquiryInstance.getIdProxy(rowClass);
 
         try {
             switch (queryType) {
@@ -445,7 +457,7 @@ public final class Query<RowType, RunReturn> {
                         for (int i = 0; i < values.length; i++) {
                             final RowType row = values[i];
                             if (row == null) continue;
-                            RowValues rowValues = InquiryConverter.classToValues(
+                            RowValues rowValues = Converter.classToValues(
                                     row, null, clsProxies, foreignChildren);
                             insertedIds[i] = inquiryInstance._getDatabase().insert(tableName,
                                     rowValues.toContentValues());
@@ -456,7 +468,7 @@ public final class Query<RowType, RunReturn> {
                         for (int i = 0; i < values.length; i++) {
                             final RowType row = values[i];
                             if (row == null) continue;
-                            RowValues rowValues = InquiryConverter.classToValues(
+                            RowValues rowValues = Converter.classToValues(
                                     row, null, clsProxies, foreignChildren);
                             final Uri uri = cr.insert(contentUri, rowValues.toContentValues());
                             if (uri == null) return (RunReturn) (Long) (-1L);
@@ -492,7 +504,7 @@ public final class Query<RowType, RunReturn> {
                         for (RowType row : values) {
                             if (row == null) continue;
                             Long rowId = rowIdProxy.get(row);
-                            RowValues rowValues = InquiryConverter.classToValues(row,
+                            RowValues rowValues = Converter.classToValues(row,
                                     projection, clsProxies, foreignChildren);
                             ContentValues values = rowValues.toContentValues();
                             if (inquiryInstance._getDatabase() != null) {
@@ -519,7 +531,7 @@ public final class Query<RowType, RunReturn> {
                     if (firstNotNull == null)
                         throw new IllegalStateException("No non-null values specified to update.");
 
-                    RowValues rowValues = InquiryConverter.classToValues(firstNotNull,
+                    RowValues rowValues = Converter.classToValues(firstNotNull,
                             projection, clsProxies, foreignChildren);
                     ContentValues values = rowValues.toContentValues();
                     if (inquiryInstance._getDatabase() != null) {
@@ -594,17 +606,17 @@ public final class Query<RowType, RunReturn> {
     private void traverseDelete() {
         RowType[] rowsThatWillDelete = all();
         if (rowsThatWillDelete == null || rowsThatWillDelete.length == 0) return;
-        List<ClassColumnProxy> proxies = InquiryConverter.classColumnProxies(rowClass);
+        List<FieldDelegate> proxies = Converter.classFieldDelegates(rowClass);
 
         for (RowType row : rowsThatWillDelete) {
-            for (ClassColumnProxy proxy : proxies) {
+            for (FieldDelegate proxy : proxies) {
                 ForeignKey fkAnn = proxy.getForeignKey();
                 if (fkAnn != null) {
                     try {
-                        ClassColumnProxy rowIdProxy = inquiryInstance.getIdProxy(rowClass);
+                        FieldDelegate rowIdProxy = inquiryInstance.getIdProxy(rowClass);
                         if (rowIdProxy == null)
                             throw new IllegalStateException("No _id column field found in " + rowClass);
-                        Class<?> listGenericType = Utils.getGenericTypeOfField(proxy);
+                        Class<?> listGenericType = Utils.getGenericTypeOfProxy(proxy);
                         Long rowId = rowIdProxy.get(row);
                         Inquiry fkInstance = Inquiry.copy(inquiryInstance, "[@fk]:" + fkAnn.tableName() + "//" + fkAnn.foreignColumnName(), false);
                         fkInstance.deleteFrom(fkAnn.tableName(), listGenericType)
@@ -622,12 +634,12 @@ public final class Query<RowType, RunReturn> {
     private void postRun(boolean updateMode) {
         if (foreignChildren == null || foreignChildren.size() == 0) return;
         for (Object row : foreignChildren.keySet()) {
-            ClassColumnProxy proxy = foreignChildren.get(row);
+            FieldDelegate proxy = foreignChildren.get(row);
             postRun(updateMode, row, proxy);
         }
     }
 
-    private void postRun(boolean updateMode, Object row, ClassColumnProxy proxy) {
+    private void postRun(boolean updateMode, Object row, FieldDelegate proxy) {
         try {
             ForeignKey fkAnn = proxy.getForeignKey();
             Object fldVal = proxy.get(row);
@@ -640,11 +652,11 @@ public final class Query<RowType, RunReturn> {
                 }
             }
 
-            Class<?> listGenericType = Utils.getGenericTypeOfField(proxy);
-            ClassColumnProxy rowIdProxy = inquiryInstance.getIdProxy(row.getClass());
-            ClassColumnProxy foreignKeyIdProxy = inquiryInstance.getIdProxy(listGenericType);
-            ClassColumnProxy foreignKeyProxy = InquiryConverter.getProxy(
-                    InquiryConverter.classColumnProxies(listGenericType),
+            Class<?> listGenericType = Utils.getGenericTypeOfProxy(proxy);
+            FieldDelegate rowIdProxy = inquiryInstance.getIdProxy(row.getClass());
+            FieldDelegate foreignKeyIdProxy = inquiryInstance.getIdProxy(listGenericType);
+            FieldDelegate foreignKeyProxy = Converter.getProxyByName(
+                    Converter.classFieldDelegates(listGenericType),
                     fkAnn.foreignColumnName(), Long.class, long.class);
 
             if (rowIdProxy == null)

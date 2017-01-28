@@ -34,7 +34,8 @@ dependencies {
 2. [Instances](https://github.com/afollestad/inquiry#instances)
 3. [Row Objects](https://github.com/afollestad/inquiry#row-objects)
 4. [Getter and Setter Methods](https://github.com/afollestad/inquiry#getter-and-setter-methods)
-5. [Querying Rows](https://github.com/afollestad/inquiry#querying-rows)
+5. [Builder Classes in Rows](https://github.com/afollestad/inquiry#builder-classes-in-rows)
+6. [Querying Rows](https://github.com/afollestad/inquiry#querying-rows)
     1. [Basics](https://github.com/afollestad/inquiry#basics)
     2. [Where](https://github.com/afollestad/inquiry#where)
     2. [Where In and Where Not In](https://github.com/afollestad/inquiry#where-in-and-where-not-in)
@@ -43,16 +44,16 @@ dependencies {
     5. [Projection](https://github.com/afollestad/inquiry#projection)
     6. [Sorting and Limiting](https://github.com/afollestad/inquiry#sorting-and-limiting)
     7. [Any and None Predicates](https://github.com/afollestad/inquiry#any-and-none-predicates)
-6. [Inserting Rows](https://github.com/afollestad/inquiry#inserting-rows)
-7. [Updating Rows](https://github.com/afollestad/inquiry#updating-rows)
+7. [Inserting Rows](https://github.com/afollestad/inquiry#inserting-rows)
+8. [Updating Rows](https://github.com/afollestad/inquiry#updating-rows)
     1. [Basics](https://github.com/afollestad/inquiry#basics-1)
     2. [Projection](https://github.com/afollestad/inquiry#projection-1)
     3. [Updating Individual Row Objects](https://github.com/afollestad/inquiry#updating-individual-row-objects)
-8. [Deleting Rows](https://github.com/afollestad/inquiry#deleting-rows)
-9. [Dropping Tables](https://github.com/afollestad/inquiry#dropping-tables)
-10. [ForeignKey Annotation](https://github.com/afollestad/inquiry#foreignkey-annotation)
-11. [Lazy Loading Children](https://github.com/afollestad/inquiry#lazy-loading-children)
-12. [Extra: Accessing Content Providers](https://github.com/afollestad/inquiry#extra-accessing-content-providers)
+9. [Deleting Rows](https://github.com/afollestad/inquiry#deleting-rows)
+10. [Dropping Tables](https://github.com/afollestad/inquiry#dropping-tables)
+11. [ForeignKey Annotation](https://github.com/afollestad/inquiry#foreignkey-annotation)
+12. [Lazy Loading Children](https://github.com/afollestad/inquiry#lazy-loading-children)
+13. [Extra: Accessing Content Providers](https://github.com/afollestad/inquiry#extra-accessing-content-providers)
     1. [Setup](https://github.com/afollestad/inquiry#setup)
     2. [Basics](https://github.com/afollestad/inquiry#basics-2)
 
@@ -285,6 +286,94 @@ We used `get`/`set` prefixes here. If you prefix a getter with `get`, you must p
 
 **Note**: if you don't include a setter method for a getter method, Inquiry will go straight to
 using the field to set values, while continuing to use the getter method to retrieve them.
+
+---
+
+# Builder Classes in Rows
+
+Inquiry supports using an enclosed `Builder` class for row construction.
+
+```java
+@Table public class Person {
+
+    private long id;
+    private String name;
+
+    private Person() {
+        // Default constructor is needed so Inquiry can auto construct instances
+    }
+
+    private Person(long id, String name) {
+        this.id = id;
+        this.name = name;
+    }
+
+    @Column(name = "_id", primaryKey = true, notNull = true, autoIncrement = true)
+    public long id() {
+        return id;
+    }
+
+    @Column public String name() {
+        return name;
+    }
+
+    public static class Builder {
+
+        private long id;
+        private String name;
+
+        public Builder() {
+        }
+
+        public Builder id(long id) {
+            this.id = id;
+            return this;
+        }
+
+        public Builder name(String name) {
+            this.name = name;
+            return this;
+        }
+
+        public Person build() {
+            return new Person(id, name);
+        }
+    }
+}
+```
+
+**If your Builder class is not named `Builder`,** you can add a `RowBuilder` annotation to the class!
+
+This comes in especially useful when using [@AutoValue](https://github.com/google/auto/tree/master/value)!
+
+```java
+@Table
+@AutoValue
+abstract class Person {
+
+    public static Builder create() {
+        return new AutoValue_Person.Builder();
+    }
+
+    @Column(autoIncrement = true, name = "_id", primaryKey = true)
+    public abstract long id();
+
+    @Column public abstract String username();
+
+    @AutoValue.Builder static abstract class Builder {
+
+        public abstract Builder id(long id);
+
+        public abstract Builder name(String username);
+
+        public abstract Person build();
+    }
+}
+```
+
+This AutoValue class is 100% supported by Inquiry! When Inquiry reads this type of row from a table,
+the Builder is automatically used for construction. **AutoValue classes that do not have a `Builder`
+are not supported.**
 
 ---
 

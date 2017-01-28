@@ -21,13 +21,14 @@ import static org.mockito.Mockito.when;
  * @author Aidan Follestad (afollestad)
  */
 @RunWith(MockitoJUnitRunner.class)
-public class GetterMethodConverterTests {
+public class GetterMethodConverterTests extends BaseTest {
 
     @Test public void test_basic_row_to_values() {
-        BasicGetterRow row = new BasicGetterRow("afollestad", 21, true, 100f);
-        Map<Object, ClassColumnProxy> foreignChildrenMap = new HashMap<>(0);
-        List<ClassColumnProxy> proxiesList = InquiryConverter.classColumnProxies(row.getClass());
-        RowValues values = InquiryConverter.classToValues(row, null, proxiesList, foreignChildrenMap);
+        GetterRow row = new GetterRow("afollestad", 21, true, 100f);
+
+        Map<Object, FieldDelegate> foreignChildrenMap = new HashMap<>(0);
+        List<FieldDelegate> proxiesList = Converter.classFieldDelegates(row.getClass());
+        RowValues values = Converter.classToValues(row, null, proxiesList, foreignChildrenMap);
 
         assertEquals(foreignChildrenMap.size(), 0);
         assertEquals(proxiesList.size(), 5);
@@ -64,7 +65,7 @@ public class GetterMethodConverterTests {
         when(mockCursor.getColumnName(3)).thenReturn("online");
         when(mockCursor.getColumnName(4)).thenReturn("rank");
 
-        BasicGetterRow row = InquiryConverter.cursorToObject(null, mockCursor, BasicGetterRow.class);
+        GetterRow row = Converter.cursorToObject(mockQuery, mockCursor, GetterRow.class);
         assertEquals(row.id(), 50);
         assertEquals(row.username(), "waverlysummer");
         assertEquals(row.age(), 19);

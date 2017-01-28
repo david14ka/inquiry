@@ -6,7 +6,7 @@ import com.afollestad.inquiry.annotations.Table;
 /**
  * @author Aidan Follestad (afollestad)
  */
-@Table public class BasicGetterRow {
+@Table public class GetterRow {
 
     private long id;
     private String username;
@@ -14,10 +14,10 @@ import com.afollestad.inquiry.annotations.Table;
     private boolean online;
     private float rank;
 
-    public BasicGetterRow() {
+    public GetterRow() {
     }
 
-    BasicGetterRow(String username, int age, boolean online, float rank) {
+    GetterRow(String username, int age, boolean online, float rank) {
         this.username = username;
         this.age = age;
         this.online = online;

@@ -39,20 +39,5 @@ class DataType {
      */
     static final int BLOB = 4;
 
-    static final int UNKNOWN = 5;
-
-    public static String name(int dataInt) {
-        switch (dataInt) {
-            case 1:
-            case 2:
-                return "INTEGER";
-            case 3:
-                return "REAL";
-            case 4:
-                return "TEXT";
-            case 5:
-                return "BLOB";
-        }
-        return null;
-    }
+    static final int UNKNOWN = -1;
 }
