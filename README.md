@@ -374,7 +374,7 @@ abstract class Person {
 
         public abstract Builder id(long id);
 
-        public abstract Builder name(String username);
+        public abstract Builder username(String username);
 
         public abstract Person build();
     }
