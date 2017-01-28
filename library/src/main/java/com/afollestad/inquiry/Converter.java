@@ -52,7 +52,7 @@ class Converter {
 
     static String getClassSchema(Class<?> cls) {
         StringBuilder sb = new StringBuilder();
-        List<FieldDelegate> proxyList = classFieldDelegates(cls);
+        List<FieldDelegate> proxyList = classFieldDelegatesReadOnly(cls);
 
         for (FieldDelegate proxy : proxyList) {
             final String schema = proxy.schema();
@@ -367,12 +367,37 @@ class Converter {
 
     static String[] generateProjection(@NonNull Class<?> cls) {
         ArrayList<String> projectionList = new ArrayList<>();
-        List<FieldDelegate> proxyList = classFieldDelegates(cls);
+        List<FieldDelegate> proxyList = classFieldDelegatesReadOnly(cls);
         for (FieldDelegate proxy : proxyList) {
             if (proxy.isForeignKey() || proxy.ignore()) continue;
             projectionList.add(proxy.name());
         }
         return projectionList.toArray(new String[projectionList.size()]);
+    }
+
+    static List<FieldDelegate> classFieldDelegatesReadOnly(@NonNull Class<?> cls) {
+        final List<FieldDelegate> proxiesList = new ArrayList<>(8);
+        while (true) {
+            for (Field field : cls.getDeclaredFields()) {
+                FieldDelegate proxy = new FieldDelegate(field, null, true);
+                if (proxy.ignore()) continue;
+                proxiesList.add(proxy);
+            }
+            for (Method method : cls.getDeclaredMethods()) {
+                if (method.getParameterTypes() != null && method.getParameterTypes().length > 0) {
+                    // Ignore setter methods at this point
+                    continue;
+                }
+                FieldDelegate proxy = new FieldDelegate(null, method, true);
+                if (proxy.ignore()) continue;
+                proxiesList.add(proxy);
+            }
+            cls = cls.getSuperclass();
+            if (cls == null) {
+                break;
+            }
+        }
+        return proxiesList;
     }
 
     static List<FieldDelegate> classFieldDelegates(@NonNull Class<?> cls) {

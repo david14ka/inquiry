@@ -18,6 +18,7 @@ class BaseTest {
     HashMap<String, Class<?>> builderClassCache;
     HashMap<String, Constructor<?>> constructorCache;
     HashMap<String, Method> buildMethodCache;
+    HashMap<String, Method> withIdMethodCache;
 
     Inquiry mockInquiry;
     Query mockQuery;
@@ -33,6 +34,7 @@ class BaseTest {
         when(mockInquiry.getBuilderClassCache()).thenReturn(builderClassCache);
         when(mockInquiry.getConstructorCache()).thenReturn(constructorCache);
         when(mockInquiry.getBuildMethodCache()).thenReturn(buildMethodCache);
+        when(mockInquiry.getWithIdMethodCache()).thenReturn(withIdMethodCache);
 
         mockQuery = mock(Query.class);
         when(mockQuery.getInquiryInstance()).thenReturn(mockInquiry);

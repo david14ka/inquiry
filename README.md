@@ -630,11 +630,12 @@ Insertion is pretty straight forward. This inserts three `People` into the table
 Person one = new Person("Waverly", 19, 8.9f, false);
 Person two = new Person("Natalie", 42, 10f, false);
 Person three = new Person("Aidan", 21, 5.7f, true);
+Person[] people = new Person[] { one, two, three };
 
 // NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
 Long[] insertedIds = Inquiry.get(this)
         .insert(Person.class)
-        .values(one, two, three)
+        .values(people)
         .run();
 ```
 
@@ -646,7 +647,7 @@ Like `all()`, `run()` has a callback variation that will run the operation in a 
 // NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
 Inquiry.get(this)
     .insert(Person.class)
-    .values(one, two, three)
+    .values(people)
     .run(new RunCallback() {
         @Override
         public void result(Long[] insertedIds) {
@@ -671,7 +672,7 @@ Person two = new Person("Natalie", 42, 10f, false);
 // NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
 Integer updatedCount = Inquiry.get(this)
     .update(Person.class)
-    .values(two)
+    .values(new Person[] { two })
     .where("name = ?", "Aidan")
     .run();
 ```
@@ -694,7 +695,7 @@ Person two = new Person("Natalie", 42, 10f, false);
 // NOTE: if you pass a custom instance name rather than just a Context, pass the instance name into get() instead of a Context
 Integer updatedCount = Inquiry.get(this)
     .update(Person.class)
-    .values(two)
+    .values(new Person[] { two })
     .where("name = ?", "Aidan")
     .projection("age", "rank")
     .run();
@@ -713,10 +714,11 @@ to updating multiple individual rows at the same time, each having their own sep
 ```java
 Person one = // ... retrieve from a query
 Person two = // ... retrieve from a query
+Person[] people = new Person[] { one, two };
 
 Integer updatedCount = Inquiry.get(this)
     .update(Person.class)
-    .values(one, two)
+    .values(people)
     .run();
 ```
 
@@ -748,10 +750,11 @@ You can also delete multiple individual rows from their objects:
 ```java
 Person one = // ... retrieve from a query
 Person two = // ... retrieve from a query
+Person[] people = new Person[] { one, two };
 
 Integer deletedCount = Inquiry.get(this)
     .delete(Person.class)
-    .values(one, two)
+    .values(people)
     .run();
 ```
 

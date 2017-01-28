@@ -15,6 +15,10 @@ public abstract class AutoValueRow {
         return new AutoValue_AutoValueRow.Builder();
     }
 
+    public AutoValueRow withId(long id) {
+        return new AutoValue_AutoValueRow.Builder(this).id(id).build();
+    }
+
     @Column(autoIncrement = true, name = "_id", primaryKey = true)
     public abstract long id();
 

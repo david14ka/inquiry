@@ -26,24 +26,28 @@ public class InquiryAutoValueTests {
     }
 
     @Test public void test_insert_and_query() throws Exception {
-        AutoValueRow row = AutoValueRow.create()
-                .username("afollestad")
-                .age(21)
-                .online(true)
-                .rank(100f)
-                .build();
+        AutoValueRow[] rows = new AutoValueRow[] {
+                AutoValueRow.create()
+                        .id(0)
+                        .username("afollestad")
+                        .age(21)
+                        .online(true)
+                        .rank(100f)
+                        .build()
+        };
 
         Long[] insertedIds = Inquiry.get(INSTANCE_NAME)
                 .insert(AutoValueRow.class)
-                .values(row)
+                .values(rows)
                 .run();
         assertEquals(insertedIds.length, 1);
+        assertEquals(rows[0].id(), (long) insertedIds[0]);
 
         AutoValueRow query1 = Inquiry.get(INSTANCE_NAME)
                 .select(AutoValueRow.class)
                 .first();
         assertNotNull(query1);
-        assertEquals(query1, row);
+        assertEquals(query1, rows[0]);
     }
 
     @After public void cleanup() {

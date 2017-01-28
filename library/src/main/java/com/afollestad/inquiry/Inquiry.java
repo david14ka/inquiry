@@ -64,7 +64,8 @@ public class Inquiry extends InquiryBase {
         FieldDelegate idProxy = getIdProxyCache().get(forClass.getName());
         if (idProxy != null) return idProxy;
 
-        List<FieldDelegate> allProxiesList = classFieldDelegates(forClass);
+        Class<?> builderCls = getBuilderClass(forClass);
+        List<FieldDelegate> allProxiesList = classFieldDelegates(forClass, false, builderCls);
         for (FieldDelegate proxy : allProxiesList) {
             if (proxy.isId()) {
                 Column columnAnnotation = proxy.getColumn();

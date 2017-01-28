@@ -18,6 +18,7 @@ public class InquiryBase {
     private HashMap<String, Class<?>> builderClassCache;
     private HashMap<String, Constructor<?>> constructorCache;
     private HashMap<String, Method> buildMethodCache;
+    private HashMap<String, Method> withIdMethodCache;
 
     InquiryBase(Context context) {
         if (context == null) {
@@ -27,6 +28,7 @@ public class InquiryBase {
         this.builderClassCache = new HashMap<>(0);
         this.constructorCache = new HashMap<>(0);
         this.buildMethodCache = new HashMap<>(0);
+        this.withIdMethodCache = new HashMap<>(0);
     }
 
     public HashMap<String, FieldDelegate> getIdProxyCache() {
@@ -45,6 +47,10 @@ public class InquiryBase {
         return buildMethodCache;
     }
 
+    public HashMap<String, Method> getWithIdMethodCache() {
+        return withIdMethodCache;
+    }
+
     public void destroyInstance() {
         if (idProxyCache != null) {
             idProxyCache.clear();
@@ -61,6 +67,10 @@ public class InquiryBase {
         if (buildMethodCache != null) {
             buildMethodCache.clear();
             buildMethodCache = null;
+        }
+        if (withIdMethodCache != null) {
+            withIdMethodCache.clear();
+            withIdMethodCache = null;
         }
     }
 }

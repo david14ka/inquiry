@@ -19,6 +19,8 @@ import com.afollestad.inquiry.lazyloading.LazyLoaderList;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.Array;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -53,7 +55,7 @@ public class Query<RowType, RunReturn> {
     private List<String> whereArgs;
     private StringBuilder sortOrder;
     private int limit;
-    private RowType[] values;
+    private ValuesWrapper<RowType> values;
 
     private HashMap<Object, FieldDelegate> foreignChildren;
 
@@ -266,26 +268,16 @@ public class Query<RowType, RunReturn> {
 
     @NonNull
     @CheckResult
-    @SuppressWarnings("unchecked")
-    protected final Query<RowType, RunReturn> value(@NonNull Object value) {
-        values = (RowType[]) Array.newInstance(rowClass, 1);
-        Array.set(values, 0, value);
-        return this;
-    }
-
-    @NonNull
-    @CheckResult
     protected final Query<RowType, RunReturn> valuesArray(@NonNull Object[] values) {
         //noinspection unchecked
-        this.values = (RowType[]) values;
+        this.values = new ValuesWrapper<>((RowType[]) values);
         return this;
     }
 
     @NonNull
     @CheckResult
-    @SafeVarargs
-    public final Query<RowType, RunReturn> values(@NonNull RowType... values) {
-        this.values = values;
+    public final Query<RowType, RunReturn> values(@NonNull RowType[] values) {
+        this.values = new ValuesWrapper<>(values);
         return this;
     }
 
@@ -296,10 +288,7 @@ public class Query<RowType, RunReturn> {
             this.values = null;
             return this;
         }
-        //noinspection unchecked
-        this.values = (RowType[]) Array.newInstance(rowClass, values.size());
-        for (int i = 0; i < values.size(); i++)
-            this.values[i] = values.get(i);
+        this.values = new ValuesWrapper<>(values);
         return this;
     }
 
@@ -419,10 +408,24 @@ public class Query<RowType, RunReturn> {
         }).start();
     }
 
+    @Nullable private Method findWithIdMethod(Class<?> forClass) {
+        for (Method method : forClass.getDeclaredMethods()) {
+            if (Modifier.isStatic(method.getModifiers())) continue;
+            if (method.getName().equals("withId") &&
+                    method.getReturnType() == forClass &&
+                    method.getParameterTypes().length == 1 &&
+                    (method.getParameterTypes()[0] == long.class ||
+                            method.getParameterTypes()[0] == Long.class)) {
+                return method;
+            }
+        }
+        return null;
+    }
+
     @SuppressLint("SwitchIntDef")
     @SuppressWarnings("unchecked")
     public RunReturn run() {
-        if (queryType != DELETE && (values == null || values.length == 0))
+        if (queryType != DELETE && (values == null || values.size() == 0))
             throw new IllegalStateException("No values were provided for this query to run.");
         else if (inquiryInstance.context == null) {
             try {
@@ -433,7 +436,9 @@ public class Query<RowType, RunReturn> {
         }
 
         final ContentResolver cr = inquiryInstance.context.getContentResolver();
-        final List<FieldDelegate> clsProxies = Converter.classFieldDelegates(rowClass);
+        final Class<?> builderCls = inquiryInstance.getBuilderClass(rowClass);
+        final List<FieldDelegate> clsProxies = Converter.classFieldDelegates(
+                rowClass, false, builderCls);
         if (tableName == null)
             throw new IllegalStateException("The table name cannot be null.");
         FieldDelegate rowIdProxy = inquiryInstance.getIdDelegate(rowClass);
@@ -441,29 +446,47 @@ public class Query<RowType, RunReturn> {
         try {
             switch (queryType) {
                 case INSERT:
-                    Long[] insertedIds = new Long[values.length];
+                    Method withIdMethod = null;
+                    if (builderCls != null) {
+                        withIdMethod = inquiryInstance.getWithIdMethodCache().get(rowClass.getName());
+                        if (withIdMethod == null)
+                            withIdMethod = findWithIdMethod(rowClass);
+                        if (withIdMethod == null) {
+                            throw new IllegalStateException("Class " + rowClass.getName() + " needs " +
+                                    "method " + rowClass.getSimpleName() + " withId(long id) in order " +
+                                    "to be inserted (so the ID can be updated without fully rebuilding).");
+                        }
+                    }
+
+                    Long[] insertedIds = new Long[values.size()];
                     if (inquiryInstance._getDatabase() != null) {
-                        for (int i = 0; i < values.length; i++) {
-                            final RowType row = values[i];
+                        for (int i = 0; i < values.size(); i++) {
+                            final RowType row = values.get(i);
                             if (row == null) continue;
                             RowValues rowValues = Converter.classToValues(
                                     row, null, clsProxies, foreignChildren);
                             insertedIds[i] = inquiryInstance._getDatabase().insert(tableName,
                                     rowValues.toContentValues());
-                            if (rowIdProxy != null)
+                            if (withIdMethod != null) {
+                                values.set(i, (RowType) withIdMethod.invoke(row, insertedIds[i]));
+                            } else if (rowIdProxy != null) {
                                 rowIdProxy.set(row, insertedIds[i]);
+                            }
                         }
                     } else if (contentUri != null) {
-                        for (int i = 0; i < values.length; i++) {
-                            final RowType row = values[i];
+                        for (int i = 0; i < values.size(); i++) {
+                            final RowType row = values.get(i);
                             if (row == null) continue;
                             RowValues rowValues = Converter.classToValues(
                                     row, null, clsProxies, foreignChildren);
                             final Uri uri = cr.insert(contentUri, rowValues.toContentValues());
                             if (uri == null) return (RunReturn) (Long) (-1L);
                             insertedIds[i] = Long.parseLong(uri.getLastPathSegment());
-                            if (rowIdProxy != null)
+                            if (withIdMethod != null) {
+                                values.set(i, (RowType) withIdMethod.invoke(row, insertedIds[i]));
+                            } else if (rowIdProxy != null) {
                                 rowIdProxy.set(row, insertedIds[i]);
+                            }
                         }
                     } else
                         throw new IllegalStateException("Database helper was null.");
@@ -510,10 +533,10 @@ public class Query<RowType, RunReturn> {
                         return (RunReturn) (Integer) updatedCount;
                     }
 
-                    RowType firstNotNull = values[values.length - 1];
+                    RowType firstNotNull = values.get(values.size() - 1);
                     if (firstNotNull == null) {
-                        for (int i = values.length - 2; i >= 0; i--) {
-                            firstNotNull = values[i];
+                        for (int i = values.size() - 2; i >= 0; i--) {
+                            firstNotNull = values.get(i);
                             if (firstNotNull != null) break;
                         }
                     }
@@ -537,11 +560,11 @@ public class Query<RowType, RunReturn> {
                     Long[] idsToDelete = null;
                     if (rowIdProxy != null && values != null) {
                         int nonNullFound = 0;
-                        idsToDelete = new Long[values.length];
-                        for (int i = 0; i < values.length; i++) {
-                            if (values[i] == null) continue;
+                        idsToDelete = new Long[values.size()];
+                        for (int i = 0; i < values.size(); i++) {
+                            if (values.isNull(i)) continue;
                             nonNullFound++;
-                            Long id = rowIdProxy.get(values[i]);
+                            Long id = rowIdProxy.get(values.get(i));
                             idsToDelete[i] = id;
                             if (id == null || id <= 0) {
                                 idsToDelete = null;
@@ -595,7 +618,7 @@ public class Query<RowType, RunReturn> {
 
     private void traverseDelete(RowType[] rowsThatWillDelete) {
         if (rowsThatWillDelete == null || rowsThatWillDelete.length == 0) return;
-        List<FieldDelegate> proxies = Converter.classFieldDelegates(rowClass);
+        List<FieldDelegate> proxies = Converter.classFieldDelegatesReadOnly(rowClass);
 
         for (RowType row : rowsThatWillDelete) {
             for (FieldDelegate proxy : proxies) {

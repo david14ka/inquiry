@@ -18,6 +18,7 @@ final class FieldDelegate {
     @Nullable private Field field;
     @Nullable private Method getterMethod;
     @Nullable private Method setterMethod;
+    private boolean readOnly;
 
     // We're acting on a Builder class
     FieldDelegate(@NonNull Class<?> parentCls,
@@ -101,6 +102,28 @@ final class FieldDelegate {
         }
     }
 
+    // We don't want the ability to set values
+    FieldDelegate(@Nullable Field field,
+                  @Nullable Method method,
+                  boolean readOnly) {
+        if (field == null && method == null)
+            throw new IllegalStateException("Both the given field and method are null.");
+
+        this.field = field;
+        this.getterMethod = method;
+        if (ignore()) return;
+        this.readOnly = readOnly;
+
+        if (this.field != null) {
+            this.field.setAccessible(true);
+        } else {
+            getterMethod.setAccessible(true);
+            if (getterMethod.getReturnType() == Void.class) {
+                throw new IllegalStateException("Column getter methods cannot be return void.");
+            }
+        }
+    }
+
     @SuppressWarnings("ConstantConditions") String originalName() {
         if (getterMethod != null) return getterMethod.getName();
         else return field.getName();
@@ -175,29 +198,36 @@ final class FieldDelegate {
             try {
                 return (T) getterMethod.invoke(row);
             } catch (Exception e) {
-                throw new IllegalStateException("Failed to access Column getter method " + getterMethod.getName() + "()", e);
+                throw new IllegalStateException("Failed to access Column getter method " +
+                        getterMethod.getName() + "()", e);
             }
         } else {
             try {
                 return (T) field.get(row);
             } catch (Exception e) {
-                throw new IllegalStateException("Failed to access Column getter field " + field.getName(), e);
+                throw new IllegalStateException("Failed to access Column getter field " +
+                        field.getName(), e);
             }
         }
     }
 
     @SuppressWarnings({"unchecked", "ConstantConditions"}) void set(Object row, Object value) {
+        if (this.readOnly) {
+            throw new IllegalStateException("You cannot call set() on a readonly FieldDelegate.");
+        }
         if (setterMethod != null) {
             try {
                 setterMethod.invoke(row, value);
             } catch (Exception e) {
-                throw new IllegalStateException("Failed to access Column setter method " + setterMethod.getName() + "(Object)", e);
+                throw new IllegalStateException("Failed to access Column setter method " +
+                        setterMethod.getName() + "(Object)", e);
             }
         } else {
             try {
                 field.set(row, value);
             } catch (Exception e) {
-                throw new IllegalStateException("Failed to access Column setter field " + field.getName(), e);
+                throw new IllegalStateException("Failed to access Column setter field " +
+                        field.getName(), e);
             }
         }
     }
