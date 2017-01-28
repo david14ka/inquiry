@@ -127,7 +127,11 @@ class RowValues implements Iterable<Map.Entry<String, Object>> {
     ContentValues toContentValues() {
         ContentValues contentValues = new ContentValues(values.size());
         for (Map.Entry<String, Object> entry : values.entrySet()) {
-            if (entry.getValue() instanceof Short)
+            if (entry.getValue() == null)
+                contentValues.putNull(entry.getKey());
+            else if (entry.getValue() instanceof String)
+                contentValues.put(entry.getKey(), (String) entry.getValue());
+            else if (entry.getValue() instanceof Short)
                 contentValues.put(entry.getKey(), (Short) entry.getValue());
             else if (entry.getValue() instanceof Integer)
                 contentValues.put(entry.getKey(), (Integer) entry.getValue());
@@ -141,6 +145,8 @@ class RowValues implements Iterable<Map.Entry<String, Object>> {
                 contentValues.put(entry.getKey(), (Byte) entry.getValue());
             else if (entry.getValue() instanceof byte[])
                 contentValues.put(entry.getKey(), (byte[]) entry.getValue());
+            else
+                throw new IllegalStateException("Unknown entry type: " + entry.getValue().getClass());
         }
         return contentValues;
     }
