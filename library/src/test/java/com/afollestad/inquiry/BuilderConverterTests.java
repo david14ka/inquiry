@@ -25,7 +25,7 @@ import static org.mockito.Mockito.when;
 public class BuilderConverterTests extends BaseTest {
 
     @Test public void test_basic_row_to_values() {
-        BuilderRow row = BuilderRow.create()
+        BuilderRow row = new BuilderRow.Builder()
                 .id(0)
                 .username("afollestad")
                 .age(21)

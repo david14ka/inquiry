@@ -13,7 +13,7 @@ import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertNotNull;
 
 @RunWith(AndroidJUnit4.class)
-public class BasicInstrumentTest {
+public class InquiryTests {
 
     private static final String INSTANCE_NAME = "test";
 

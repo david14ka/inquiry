@@ -357,16 +357,6 @@ public class Query<RowType, RunReturn> {
         return null;
     }
 
-    /**
-     * @deprecated Use {{@link #first()}} instead.
-     */
-    @Nullable
-    @CheckResult
-    @Deprecated
-    public RowType one() {
-        return first();
-    }
-
     @Nullable
     @CheckResult
     public RowType first() {

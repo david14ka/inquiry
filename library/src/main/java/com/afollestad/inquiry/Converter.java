@@ -22,6 +22,7 @@ import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -397,8 +398,9 @@ class Converter {
         if (builderCls != null) {
             for (Method method : builderCls.getDeclaredMethods()) {
                 if (method.getParameterTypes() == null ||
-                        method.getParameterTypes().length == 0) {
-                    // Ignore methods without parameters
+                        method.getParameterTypes().length == 0 ||
+                        Modifier.isStatic(method.getModifiers())) {
+                    // Ignore methods without parameters, and static methods
                     continue;
                 }
                 FieldDelegate proxy = new FieldDelegate(cls, builderCls, method);

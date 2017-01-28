@@ -2,42 +2,85 @@ package com.afollestad.inquiry;
 
 import com.afollestad.inquiry.annotations.Column;
 import com.afollestad.inquiry.annotations.Table;
-import com.google.auto.value.AutoValue;
 
 /**
  * @author Aidan Follestad (afollestad)
  */
-@Table
-@AutoValue
-public abstract class BuilderRow {
+@Table public class BuilderRow {
 
-    public static Builder create() {
-        return new AutoValue_BuilderRow.Builder();
+    private final long id;
+    private final String username;
+    private final int age;
+    private final boolean online;
+    private final float rank;
+
+    private BuilderRow(Builder builder) {
+        this.id = builder.id;
+        this.username = builder.username;
+        this.age = builder.age;
+        this.online = builder.online;
+        this.rank = builder.rank;
     }
 
     @Column(autoIncrement = true, name = "_id", primaryKey = true)
-    public abstract long id();
+    public long id() {
+        return id;
+    }
 
-    @Column public abstract String username();
+    @Column public String username() {
+        return username;
+    }
 
-    @Column public abstract int age();
+    @Column public int age() {
+        return age;
+    }
 
-    @Column public abstract boolean online();
+    @Column public boolean online() {
+        return online;
+    }
 
-    @Column public abstract float rank();
+    @Column public float rank() {
+        return rank;
+    }
 
-    @AutoValue.Builder static abstract class Builder {
+    public static class Builder {
 
-        public abstract Builder id(long id);
+        private long id;
+        private String username;
+        private int age;
+        private boolean online;
+        private float rank;
 
-        public abstract Builder username(String username);
+        public Builder() {
+        }
 
-        public abstract Builder age(int age);
+        public Builder id(long id) {
+            this.id = id;
+            return this;
+        }
 
-        public abstract Builder online(boolean online);
+        public Builder username(String username) {
+            this.username = username;
+            return this;
+        }
 
-        public abstract Builder rank(float rank);
+        public Builder age(int age) {
+            this.age = age;
+            return this;
+        }
 
-        public abstract BuilderRow build();
+        public Builder online(boolean online) {
+            this.online = online;
+            return this;
+        }
+
+        public Builder rank(float rank) {
+            this.rank = rank;
+            return this;
+        }
+
+        public BuilderRow build() {
+            return new BuilderRow(this);
+        }
     }
 }

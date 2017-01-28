@@ -24,7 +24,8 @@ final class FieldDelegate {
                   @NonNull Class<?> builderCls,
                   @NonNull Method setterMethod) {
         if (setterMethod.getReturnType() != builderCls) {
-            throw new IllegalStateException("Builder setter methods must return the Builder instance.");
+            throw new IllegalStateException("Builder setter method " + setterMethod.getName() + " " +
+                    "must return " + builderCls.getName());
         }
         if (setterMethod.getParameterTypes() == null || setterMethod.getParameterTypes().length != 1) {
             throw new IllegalStateException("Builder setter methods must only have 1 parameter.");
