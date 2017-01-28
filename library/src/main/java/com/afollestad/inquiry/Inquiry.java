@@ -166,8 +166,12 @@ public class Inquiry extends InquiryBase {
                 instances.put(name, newInstance);
             }
 
-            if (newInstance.handler == null)
-                newInstance.handler = new Handler();
+            try {
+                if (newInstance.handler == null)
+                    newInstance.handler = new Handler();
+            } catch (RuntimeException e) {
+                // Happens in instrument tests
+            }
             LOG("Built instance %s", name);
 
             return newInstance;
