@@ -571,8 +571,9 @@ public class Query<RowType, RunReturn> {
                     }
 
                     if (inquiryInstance._getDatabase() != null) {
+                        RowType[] rowsThatWillDelete = all();
                         RunReturn value = (RunReturn) (Integer) inquiryInstance._getDatabase().delete(tableName, getWhere(), getWhereArgs());
-                        traverseDelete();
+                        traverseDelete(rowsThatWillDelete);
                         return value;
                     } else if (contentUri != null)
                         return (RunReturn) (Integer) cr.delete(contentUri, getWhere(), getWhereArgs());
@@ -602,8 +603,7 @@ public class Query<RowType, RunReturn> {
         }).start();
     }
 
-    private void traverseDelete() {
-        RowType[] rowsThatWillDelete = all();
+    private void traverseDelete(RowType[] rowsThatWillDelete) {
         if (rowsThatWillDelete == null || rowsThatWillDelete.length == 0) return;
         List<FieldDelegate> proxies = Converter.classFieldDelegates(rowClass);
 

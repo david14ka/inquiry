@@ -117,7 +117,7 @@ class Converter {
             if (inverseFieldName != null && !inverseFieldName.isEmpty()) {
                 for (Object val : valuesArray) {
                     FieldDelegate inverseProxy = getProxyByName(
-                            classFieldDelegates(childType), inverseFieldName);
+                            classFieldDelegates(childType, false, null, false), inverseFieldName);
                     if (inverseProxy == null) {
                         throw new IllegalStateException("Inverse field " +
                                 inverseFieldName + " not found in " + childType);
@@ -353,6 +353,13 @@ class Converter {
                 if (!matchesOneRequiredType) continue;
             }
             if (proxy.name().equals(name)) return proxy;
+            if (proxy.isForeignKey()) {
+                ForeignKey foreignKeyAnn = proxy.getForeignKey();
+                if (name.equals(foreignKeyAnn.inverseFieldName()) ||
+                        name.equals(foreignKeyAnn.foreignColumnName())) {
+                    return proxy;
+                }
+            }
         }
         return null;
     }
@@ -379,6 +386,13 @@ class Converter {
     static List<FieldDelegate> classFieldDelegates(@NonNull Class<?> cls,
                                                    boolean methodsOnly,
                                                    @Nullable Class<?> builderCls) {
+        return classFieldDelegates(cls, methodsOnly, builderCls, true);
+    }
+
+    static List<FieldDelegate> classFieldDelegates(@NonNull Class<?> cls,
+                                                   boolean methodsOnly,
+                                                   @Nullable Class<?> builderCls,
+                                                   boolean skipIgnored) {
         final List<FieldDelegate> proxiesList = new ArrayList<>(8);
         if (builderCls != null) {
             for (Method method : builderCls.getDeclaredMethods()) {
@@ -388,7 +402,7 @@ class Converter {
                     continue;
                 }
                 FieldDelegate proxy = new FieldDelegate(cls, builderCls, method);
-                if (proxy.ignore()) continue;
+                if (skipIgnored && proxy.ignore()) continue;
                 proxiesList.add(proxy);
             }
         } else {
@@ -396,7 +410,7 @@ class Converter {
                 if (!methodsOnly) {
                     for (Field field : cls.getDeclaredFields()) {
                         FieldDelegate proxy = new FieldDelegate(field, null, cls);
-                        if (proxy.ignore()) continue;
+                        if (skipIgnored && proxy.ignore()) continue;
                         proxiesList.add(proxy);
                     }
                 }
@@ -406,7 +420,7 @@ class Converter {
                         continue;
                     }
                     FieldDelegate proxy = new FieldDelegate(null, method, cls);
-                    if (proxy.ignore()) continue;
+                    if (skipIgnored && proxy.ignore()) continue;
                     proxiesList.add(proxy);
                 }
                 cls = cls.getSuperclass();

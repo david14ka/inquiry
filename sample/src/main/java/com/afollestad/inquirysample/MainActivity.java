@@ -19,9 +19,14 @@ public class MainActivity extends AppCompatActivity {
         Stetho.initializeWithDefaults(this);
 
         // :memory uses in-memory DB which only persists until the app closes. No file saving.
-        Inquiry.newInstance(this, "forStetho")
+        Inquiry.newInstance(this, "forStetho3")
                 .build();
-        Inquiry.get(this).dropTable(Parent.class);
+        Inquiry.get(this)
+                .delete(Parent.class)
+                .run();
+        Inquiry.get(this)
+                .delete(Child.class)
+                .run();
         query();
     }
 
@@ -41,6 +46,11 @@ public class MainActivity extends AppCompatActivity {
                     } else {
                         Log.d("MainActivity", "Got " + result.length + " rows.");
                         Log.d("MainActivity", "Parent 1 has " + result[0].children.size() + " children."); // Triggers lazy loading
+
+                        Inquiry.get(this)
+                                .delete(Parent.class)
+                                .where("_id = ?", result[1].id)
+                                .run();
                     }
                 });
     }
