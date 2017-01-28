@@ -26,6 +26,7 @@ public class BuilderConverterTests extends BaseTest {
 
     @Test public void test_basic_row_to_values() {
         BuilderRow row = BuilderRow.create()
+                .id(0)
                 .username("afollestad")
                 .age(21)
                 .online(true)
