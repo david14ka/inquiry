@@ -17,11 +17,13 @@ public class BasicInstrumentTest {
 
     private static final String INSTANCE_NAME = "test";
 
-    @Before public void setup() {
+    @SuppressWarnings("CheckResult") @Before public void setup() {
         Context appContext = InstrumentationRegistry.getTargetContext();
-        Inquiry.newInstance(appContext, ":memory")
+        Inquiry inq = Inquiry.newInstance(appContext, "test.dn")
                 .instanceName(INSTANCE_NAME)
                 .build();
+        inq.delete(Person.class);
+        inq.delete(Child.class);
     }
 
     @Test public void test_insert_and_query() throws Exception {
@@ -44,13 +46,13 @@ public class BasicInstrumentTest {
                 .select(Child.class)
                 .all();
         assertNotNull("No children loaded from the database!", insertedChildren);
-        assertEquals(insertedChildren.length, 3);
+        assertEquals(insertedChildren.length, 3) ;
         assertEquals(insertedChildren[0].name, "Aidan");
         assertEquals(insertedChildren[0].parentId, (long) insertedIds[0]);
         assertEquals(insertedChildren[1].name, "Dylan");
         assertEquals(insertedChildren[1].parentId, (long) insertedIds[1]);
         assertEquals(insertedChildren[2].name, "Elias");
-        assertEquals(insertedChildren[2].parentId, (long) insertedIds[0]);
+        assertEquals(insertedChildren[2].parentId, (long) insertedIds[1]);
 
         Person[] queriedPeople = Inquiry.get(INSTANCE_NAME)
                 .select(Person.class)
