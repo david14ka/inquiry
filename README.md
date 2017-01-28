@@ -291,7 +291,9 @@ using the field to set values, while continuing to use the getter method to retr
 
 # Builder Classes in Rows
 
-Inquiry supports using an enclosed `Builder` class for row construction.
+Inquiry supports using a nested `Builder` class for row construction. *If your row includes an _id
+field*, you must also include a `withId(long)` method that returns a new instance of the class
+that has an ID updated to the value of the method parameter.
 
 ```java
 @Table public class Person {
@@ -311,6 +313,10 @@ Inquiry supports using an enclosed `Builder` class for row construction.
     @Column(name = "_id", primaryKey = true, notNull = true, autoIncrement = true)
     public long id() {
         return id;
+    }
+
+    public Person withId(long id) {
+        return Person(id, this.name);
     }
 
     @Column public String name() {
@@ -358,6 +364,10 @@ abstract class Person {
     @Column(autoIncrement = true, name = "_id", primaryKey = true)
     public abstract long id();
 
+    public Person withId(long id) {
+        return new AutoValue_Person.Builder(this).id(id).build();
+    }
+
     @Column public abstract String username();
 
     @AutoValue.Builder static abstract class Builder {
@@ -373,7 +383,7 @@ abstract class Person {
 
 This AutoValue class is 100% supported by Inquiry! When Inquiry reads this type of row from a table,
 the Builder is automatically used for construction. **AutoValue classes that do not have a `Builder`
-are not supported.**
+are not currently supported due to complexity.**
 
 ---
 
