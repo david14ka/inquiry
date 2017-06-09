@@ -5,16 +5,14 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/**
- * @author Aidan Follestad (afollestad)
- */
+/** @author Aidan Follestad (afollestad) */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.FIELD, ElementType.METHOD})
 public @interface ForeignKey {
 
-    String tableName();
+  String tableName();
 
-    String foreignColumnName();
+  String foreignColumnName();
 
-    String inverseFieldName() default "";
+  String inverseFieldName() default "";
 }

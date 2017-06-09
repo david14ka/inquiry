@@ -9,50 +9,65 @@ import android.util.Log;
 
 class SQLiteHelper extends SQLiteOpenHelper {
 
-    SQLiteHelper(Context context, String databaseName, int version) {
-        super(context, databaseName == null || databaseName.equals(":memory") ? null : databaseName, null, version);
-    }
+  SQLiteHelper(Context context, String databaseName, int version) {
+    super(
+        context,
+        databaseName == null || databaseName.equals(":memory") ? null : databaseName,
+        null,
+        version);
+  }
 
-    private String lastTableName;
+  private String lastTableName;
 
-    void createTableIfNecessary(String name, Class<?> rowCls) {
-        lastTableName = name;
-        try {
-            String columns = Converter.getClassSchema(rowCls);
-            String createStatement = String.format("CREATE TABLE IF NOT EXISTS %s (%s);", name, columns);
-            getWritableDatabase().execSQL(createStatement);
-        } catch (Exception e) {
-            Utils.wrapInReIfNecessary(e);
-        }
+  void createTableIfNecessary(String name, Class<?> rowCls) {
+    lastTableName = name;
+    try {
+      String columns = Converter.getClassSchema(rowCls);
+      String createStatement = String.format("CREATE TABLE IF NOT EXISTS %s (%s);", name, columns);
+      getWritableDatabase().execSQL(createStatement);
+    } catch (Exception e) {
+      Utils.wrapInReIfNecessary(e);
     }
+  }
 
-    @Override
-    public void onCreate(SQLiteDatabase database) {
-    }
+  @Override
+  public void onCreate(SQLiteDatabase database) {}
 
-    @Override
-    public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        if (lastTableName == null) return;
-        Log.w(SQLiteHelper.class.getName(), "Upgrading database from version " + oldVersion + " to " + newVersion + ", which will destroy all old data");
-        db.execSQL("DROP TABLE IF EXISTS " + lastTableName);
-        onCreate(db);
-    }
+  @Override
+  public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+    if (lastTableName == null) return;
+    Log.w(
+        SQLiteHelper.class.getName(),
+        "Upgrading database from version "
+            + oldVersion
+            + " to "
+            + newVersion
+            + ", which will destroy all old data");
+    db.execSQL("DROP TABLE IF EXISTS " + lastTableName);
+    onCreate(db);
+  }
 
-    public final Cursor query(String tableName, String[] projection, String selection,
-                              String[] selectionArgs, String sortOrder) {
-        return getReadableDatabase().query(tableName, projection, selection, selectionArgs, null, null, sortOrder);
-    }
+  public final Cursor query(
+      String tableName,
+      String[] projection,
+      String selection,
+      String[] selectionArgs,
+      String sortOrder) {
+    return getReadableDatabase()
+        .query(tableName, projection, selection, selectionArgs, null, null, sortOrder);
+  }
 
-    public final long insert(String tableName, ContentValues values) {
-        return getWritableDatabase().insert(tableName, null, values);
-    }
+  public final long insert(String tableName, ContentValues values) {
+    return getWritableDatabase().insert(tableName, null, values);
+  }
 
-    public final int delete(String tableName, String selection, String[] selectionArgs) {
-        if (selection == null) selection = "1";
-        return getWritableDatabase().delete(tableName, selection, selectionArgs);
-    }
+  public final int delete(String tableName, String selection, String[] selectionArgs) {
+    if (selection == null) selection = "1";
+    return getWritableDatabase().delete(tableName, selection, selectionArgs);
+  }
 
-    public final int update(String tableName, ContentValues values, String selection, String[] selectionArgs) {
-        return getWritableDatabase().update(tableName, values, selection, selectionArgs);
-    }
+  public final int update(
+      String tableName, ContentValues values, String selection, String[] selectionArgs) {
+    return getWritableDatabase().update(tableName, values, selection, selectionArgs);
+  }
 }

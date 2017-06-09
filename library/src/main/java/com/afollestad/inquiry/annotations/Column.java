@@ -5,18 +5,16 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/**
- * @author Aidan Follestad (afollestad)
- */
+/** @author Aidan Follestad (afollestad) */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.FIELD, ElementType.METHOD})
 public @interface Column {
 
-    boolean primaryKey() default false;
+  boolean primaryKey() default false;
 
-    boolean autoIncrement() default false;
+  boolean autoIncrement() default false;
 
-    boolean notNull() default false;
+  boolean notNull() default false;
 
-    String name() default "";
+  String name() default "";
 }
